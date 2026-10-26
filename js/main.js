@@ -23,9 +23,9 @@ const settings = {
   maxBlur: 5.6,
   focusManual: false,
   focusDist: 16,
-  bloomS: 0.34,
-  bloomT: 0.86,
-  bloomR: 0.42,
+  bloomS: 0.14,
+  bloomT: 0.94,
+  bloomR: 0.22,
   exposure: 1.18,
   light: 1,
   flow: 1,
@@ -627,23 +627,23 @@ function bindUI() {
       aperture: 0.7,
       maxBlur: 5.6,
       focusManual: false,
-      bloomS: 0.34,
-      bloomT: 0.86,
-      bloomR: 0.42,
+      bloomS: 0.14,
+      bloomT: 0.94,
+      bloomR: 0.22,
       exposure: 1.18,
       light: 1,
       flow: 1,
     });
     $("aperture").value = 0.7;
     $("maxblur").value = 5.6;
-    $("bloomS").value = 0.34;
-    $("bloomT").value = 0.86;
-    $("bloomR").value = 0.42;
+    $("bloomS").value = 0.14;
+    $("bloomT").value = 0.94;
+    $("bloomR").value = 0.22;
     $("exposure").value = 1.18;
     $("light").value = 1;
     $("flow").value = 1;
     ["apV", "mbV", "bsV", "btV", "brV", "exV", "liV", "flV"].forEach((id, i) => {
-      const v = [0.7, 5.6, 0.34, 0.86, 0.42, 1.18, 1, 1][i];
+      const v = [0.7, 5.6, 0.14, 0.94, 0.22, 1.18, 1, 1][i];
       $(id).textContent = i === 1 ? v.toFixed(1) : v.toFixed(2);
     });
     applyQuality(pickQuality());

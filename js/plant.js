@@ -29,8 +29,8 @@ function materials() {
   MAT.membrane = std(0xd5ecf5, 0.05, 0.35, { transparent: true, opacity: 0.42, side: THREE.DoubleSide, depthWrite: false });
   MAT.tube = std(0xeaf8ff, 0.2, 0.25, { emissive: 0x8fdfff, emissiveIntensity: 0.25 });
   MAT.water = std(0x146e78, 0.1, 0.18, { transparent: true, opacity: 0.55, roughness: 0.08 });
-  MAT.lamp = std(0xd7f6ff, 0.2, 0.3, { emissive: 0xbfefff, emissiveIntensity: 2.4 });
-  MAT.warmLamp = std(0xffe1c2, 0.2, 0.35, { emissive: 0xffc48a, emissiveIntensity: 1.6 });
+  MAT.lamp = std(0xd7f6ff, 0.2, 0.3, { emissive: 0xbfefff, emissiveIntensity: 1.15 });
+  MAT.warmLamp = std(0xffe1c2, 0.2, 0.35, { emissive: 0xffc48a, emissiveIntensity: 0.85 });
 }
 
 function geo(key, build) {
@@ -345,34 +345,6 @@ export function createPlant(scene) {
     foamMat.uniforms.uTime.value = t;
   });
 
-  const rockMat = std(0x1e262c, 0.22, 0.38);
-  const rocks = [
-    [-18.8, -11.2, 1.5, 0.85, 1.2, 0.4],
-    [-19.6, -7.4, 0.9, 0.5, 0.8, 1.2],
-    [-18.3, -3.6, 1.9, 1.05, 1.4, 0.15],
-    [-19.9, 0.8, 1.1, 0.6, 0.95, 2.1],
-    [-18.5, 5.2, 2.2, 1.15, 1.6, 0.6],
-    [-19.7, 9.4, 1.2, 0.55, 1.0, 1.3],
-    [-18.6, 13.8, 1.6, 0.8, 1.25, 0.3],
-    [-20.6, -14.2, 1.3, 0.65, 1.1, 0.9],
-    [-29.5, 1.7, 0.85, 0.4, 0.7, 0.5],
-    [-26.8, -1.7, 1.05, 0.48, 0.85, 1.1],
-    [-30.4, -0.6, 0.7, 0.32, 0.6, 0.2],
-    [-27.6, 2.4, 0.6, 0.28, 0.5, 0.8],
-    [-21.4, 23.5, 2.5, 1.35, 1.9, 0.35],
-    [-24.6, 27.2, 1.7, 0.95, 1.4, 1.05],
-    [-19.4, 21.6, 1.35, 0.75, 1.15, 0.2],
-    [-27.2, 24.4, 1.15, 0.6, 0.95, 0.7],
-  ];
-  rocks.forEach(([x, z, sx, sy, sz, rot]) => {
-    const rock = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 8), rockMat);
-    rock.scale.set(sx, sy, sz);
-    rock.rotation.y = rot;
-    rock.position.set(x, seaY + sy * 0.55, z);
-    rock.castShadow = true;
-    rock.receiveShadow = true;
-    root.add(rock);
-  });
   const stain = new THREE.Mesh(
     new THREE.PlaneGeometry(38, 0.85),
     std(0x10161c, 0.45, 0.32)
@@ -433,7 +405,7 @@ export function createPlant(scene) {
     addCyl(root, 0.08, 0.1, 6.2, MAT.steelDark, x, 3.1, z, null, false, 8);
     addBox(root, 1.1, 0.12, 0.28, MAT.steel, x, 6.15, z - 0.2, null, false);
     const lamp = addBox(root, 0.7, 0.08, 0.2, MAT.lamp, x, 6.02, z - 0.2, null, false);
-    const pl = new THREE.PointLight(0xc6ecff, 1.6, 14, 2);
+    const pl = new THREE.PointLight(0xc6ecff, 1.05, 14, 2);
     pl.position.set(x, 5.7, z - 0.2);
     root.add(pl);
     return lamp;
@@ -446,7 +418,7 @@ export function createPlant(scene) {
   root.add(room);
   addBox(room, 6.5, 3.2, 3.4, MAT.paintDeep, 0, 1.6, 0);
   addBox(room, 6.6, 0.2, 3.6, MAT.steelDark, 0, 3.3, 0, null, false);
-  const winMat = std(0x071820, 0.1, 0.05, { emissive: 0x1c6d88, emissiveIntensity: 0.9 });
+  const winMat = std(0x071820, 0.1, 0.05, { emissive: 0x1c6d88, emissiveIntensity: 0.65 });
   addBox(room, 1.4, 1.1, 0.08, winMat, -1.6, 1.8, 1.72, null, false);
   addBox(room, 1.4, 1.1, 0.08, winMat, 1.6, 1.8, 1.72, null, false);
   addBox(room, 0.9, 2.1, 0.08, MAT.steelDark, 0, 1.05, 1.72, null, false);
