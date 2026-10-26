@@ -261,10 +261,10 @@ export function createPlant(scene) {
   const shoreX = -14.2;
   const seaY = -0.18;
   const sea = new Water(new THREE.PlaneGeometry(seaWidth, seaDepth), {
-    color: 0x1a4554,
+    color: 0xa9cdd8,
     scale: 22,
-    flowSpeed: 0.018,
-    reflectivity: 0.32,
+    flowSpeed: 0.022,
+    reflectivity: 0.34,
     flowDirection: new THREE.Vector2(0.18, 1),
     textureWidth: 1024,
     textureHeight: 1024,
@@ -281,6 +281,7 @@ export function createPlant(scene) {
   const seabed = new THREE.Mesh(
     new THREE.PlaneGeometry(seaWidth + 20, seaDepth + 20),
     new THREE.ShaderMaterial({
+      side: THREE.DoubleSide,
       uniforms: { uShore: { value: -17.2 } },
       vertexShader: `varying vec3 vW; void main(){ vec4 w=modelMatrix*vec4(position,1.0); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }`,
       fragmentShader: `
@@ -288,11 +289,11 @@ export function createPlant(scene) {
         uniform float uShore;
         void main() {
           float d = clamp((uShore - vW.x) / 70.0, 0.0, 1.0);
-          vec3 shore = vec3(0.07, 0.16, 0.16);
-          vec3 deep = vec3(0.006, 0.022, 0.04);
+          vec3 shore = vec3(0.11, 0.30, 0.34);
+          vec3 deep = vec3(0.045, 0.16, 0.24);
           float rock = smoothstep(0.55, 0.92, sin(vW.x * 0.55) * sin(vW.z * 0.47) * 0.5 + 0.5);
           vec3 col = mix(shore, deep, smoothstep(0.0, 0.8, d));
-          col = mix(col, vec3(0.03, 0.05, 0.05), rock * (1.0 - d));
+          col = mix(col, vec3(0.05, 0.10, 0.11), rock * (1.0 - d));
           gl_FragColor = vec4(col, 1.0);
         }
       `,

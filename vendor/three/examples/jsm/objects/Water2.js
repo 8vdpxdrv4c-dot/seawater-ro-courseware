@@ -346,9 +346,9 @@ Water.WaterShader = {
 
 			// calculate final uv coords
 			vec3 coord = vCoord.xyz / vCoord.w;
-			// 0.16 instead of the pool-scale 0.05 so chop still reads from the
-			// plant cameras (tens of metres away). Same Water2 normal path.
-			vec2 uv = coord.xy + coord.z * normal.xz * 0.16;
+			// 0.09: stronger than the pool default 0.05, small enough that the
+			// lookup stays on the reflection instead of sliding into black.
+			vec2 uv = coord.xy + coord.z * normal.xz * 0.09;
 
 			vec4 reflectColor = texture2D( tReflectionMap, vec2( 1.0 - uv.x, uv.y ) );
 			vec4 refractColor = texture2D( tRefractionMap, uv );
