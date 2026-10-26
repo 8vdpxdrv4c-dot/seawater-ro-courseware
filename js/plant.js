@@ -9,21 +9,21 @@ function std(color, metalness, roughness, extra) {
 }
 
 function materials() {
-  // Daylight coastal plant: pale concrete, grey metal, white tanks, safety yellow only on valves.
-  MAT.steel = std(0x9aa3ab, 0.84, 0.32);
-  MAT.steelDark = std(0x6e777f, 0.78, 0.4);
-  MAT.paint = std(0xb7c0c6, 0.22, 0.42);
-  MAT.paintDeep = std(0x8e979f, 0.26, 0.46);
-  MAT.stainless = std(0xe7eef3, 0.92, 0.18);
-  MAT.tank = std(0xf3f6f8, 0.62, 0.24);
+  // Sunny coastal plant: pale concrete, specular metal, white tanks, safety-yellow metal accents.
+  MAT.steel = std(0xb7c0c8, 0.94, 0.2);
+  MAT.steelDark = std(0x8d979f, 0.9, 0.26);
+  MAT.paint = std(0xc5ced4, 0.48, 0.3);
+  MAT.paintDeep = std(0x9aa4ac, 0.52, 0.32);
+  MAT.stainless = std(0xf4f7f8, 0.97, 0.11);
+  MAT.tank = std(0xf7f8f9, 0.9, 0.14);
   MAT.concrete = std(0xe7e9ec, 0.02, 0.9);
   MAT.concreteDark = std(0xc9ccc8, 0.03, 0.92);
-  MAT.motor = std(0x3a4148, 0.42, 0.5);
-  MAT.yellow = std(0xf0c419, 0.28, 0.4);
+  MAT.motor = std(0x4a525a, 0.74, 0.3);
+  MAT.yellow = std(0xf0c419, 0.64, 0.26);
   MAT.rubber = std(0x2c3136, 0.08, 0.74);
-  MAT.flange = std(0xc5ced6, 0.86, 0.26);
-  MAT.intake = std(0xc45c58, 0.32, 0.42);
-  MAT.rail = std(0xd5dde4, 0.78, 0.3);
+  MAT.flange = std(0xd8e0e8, 0.95, 0.14);
+  MAT.intake = std(0xc45c58, 0.58, 0.3);
+  MAT.rail = std(0xdfe6ee, 0.9, 0.18);
   MAT.chemA = std(0xd4923c, 0.28, 0.4);
   MAT.chemB = std(0x7a68b8, 0.28, 0.4);
   MAT.chemC = std(0x3aa3ae, 0.32, 0.38);
@@ -269,6 +269,7 @@ export function createPlant(scene) {
     m.scale.set(rx, ry, rz);
     m.position.set(x, ry * 0.22, z);
     m.rotation.y = rot || 0;
+    m.castShadow = true;
     m.receiveShadow = true;
     root.add(m);
   }
@@ -393,23 +394,57 @@ export function createPlant(scene) {
   stain.position.set(-17.34, seaY + 0.42, 0);
   root.add(stain);
 
-  const skyGeo = new THREE.SphereGeometry(280, 32, 20);
+  const skyGeo = new THREE.SphereGeometry(280, 48, 32);
   const skyMat = new THREE.ShaderMaterial({
     side: THREE.BackSide,
     depthWrite: false,
     vertexShader: `varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
     fragmentShader: `
       varying vec3 vP;
+      float hash(vec2 p){
+        p = fract(p * vec2(123.34, 345.45));
+        p += dot(p, p + 34.345);
+        return fract(p.x * p.y);
+      }
+      float noise(vec2 p){
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        f = f * f * (3.0 - 2.0 * f);
+        float a = hash(i);
+        float b = hash(i + vec2(1.0, 0.0));
+        float c = hash(i + vec2(0.0, 1.0));
+        float d = hash(i + vec2(1.0, 1.0));
+        return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+      }
+      float fbm(vec2 p){
+        float v = 0.0;
+        float a = 0.55;
+        for (int i = 0; i < 5; i++) {
+          v += a * noise(p);
+          p = p * 2.03 + vec2(1.7, 9.2);
+          a *= 0.5;
+        }
+        return v;
+      }
       void main() {
-        float h = normalize(vP).y;
-        vec3 zen = vec3(0.27, 0.42, 0.66);
-        vec3 mid = vec3(0.46, 0.60, 0.76);
-        vec3 hor = vec3(0.70, 0.76, 0.80);
-        vec3 col = mix(hor, mid, smoothstep(0.0, 0.32, h));
-        col = mix(col, zen, smoothstep(0.2, 0.78, h));
-        float cloud = sin(vP.x * 0.018) * sin(vP.z * 0.015) * sin(vP.x * 0.007 + vP.z * 0.009);
-        cloud = smoothstep(-0.05, 0.55, cloud) * smoothstep(0.08, 0.42, h);
-        col = mix(col, vec3(0.78, 0.84, 0.88), cloud * 0.28);
+        vec3 dir = normalize(vP);
+        float h = dir.y;
+        vec3 zen = vec3(0.05, 0.32, 0.92);
+        vec3 mid = vec3(0.16, 0.48, 0.96);
+        vec3 hor = vec3(0.45, 0.72, 0.98);
+        vec3 col = mix(hor, mid, smoothstep(0.0, 0.18, h));
+        col = mix(col, zen, smoothstep(0.08, 0.5, h));
+        vec2 cuv = dir.xz * 2.6;
+        float cumulus = smoothstep(0.62, 0.78, fbm(cuv + vec2(2.0, 0.6)));
+        float puff = smoothstep(0.7, 0.86, fbm(cuv * 1.7 + 8.0));
+        float cover = max(cumulus, puff * 0.65);
+        cover *= smoothstep(-0.05, 0.08, h);
+        col = mix(col, vec3(1.0, 1.0, 1.0), cover);
+        vec3 sunDir = normalize(vec3(0.2, 0.46, -0.86));
+        float sun = pow(max(dot(dir, sunDir), 0.0), 1800.0);
+        float glow = pow(max(dot(dir, sunDir), 0.0), 18.0);
+        col += vec3(1.0, 0.97, 0.88) * sun;
+        col += vec3(1.0, 0.92, 0.7) * glow * 0.08;
         gl_FragColor = vec4(col, 1.0);
       }
     `,
@@ -423,6 +458,7 @@ export function createPlant(scene) {
     m.scale.set(rx, ry, rz);
     m.position.set(x, ry * 0.15, z);
     m.rotation.y = rot || 0;
+    m.castShadow = true;
     m.receiveShadow = true;
     scene.add(m);
   }
@@ -432,7 +468,7 @@ export function createPlant(scene) {
   hill(-8, -40, 18, 4, 10, 0.6);
 
   // road
-  addBox(root, 86, 0.04, 4.2, std(0x3a3f46, 0.12, 0.86), 28, 0.03, 12.2, null, false);
+  addBox(root, 86, 0.04, 4.2, std(0x3a3f46, 0.18, 0.72), 28, 0.03, 12.2, null, true);
   for (let i = 0; i < 18; i++) {
     addBox(root, 1.6, 0.02, 0.12, std(0xf4f6f8, 0.05, 0.55), -8 + i * 4.4, 0.06, 12.2, null, false);
   }

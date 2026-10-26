@@ -13,7 +13,7 @@ const $ = (id) => document.getElementById(id);
 const canvas = $("c");
 const q = new URLSearchParams(location.search);
 
-const PANORAMA = { pos: [40, 28, 50], target: [6, 1.2, 0], fov: 40 };
+const PANORAMA = { pos: [58, 16, 60], target: [6, 3.2, -1], fov: 44 };
 const ESTABLISH = { pos: [16, 42, 88], target: [22, 1.2, -2], fov: 32 };
 
 const settings = {
@@ -26,7 +26,7 @@ const settings = {
   bloomS: 0.14,
   bloomT: 0.94,
   bloomR: 0.22,
-  exposure: 0.86,
+  exposure: 0.84,
   light: 1,
   flow: 1,
   fps: false,
@@ -43,39 +43,39 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = settings.exposure;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.setClearColor(0xd5e3f0, 1);
+renderer.setClearColor(0x8ec4ef, 1);
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xd5e3f0);
-scene.fog = new THREE.Fog(0xd5e3f0, 220, 520);
+scene.background = new THREE.Color(0x8ec4ef);
+scene.fog = new THREE.Fog(0xc5ddf6, 380, 820);
 
 const camera = new THREE.PerspectiveCamera(ESTABLISH.fov, 1, 0.25, 420);
 camera.position.set(...ESTABLISH.pos);
 
 const pmrem = new THREE.PMREMGenerator(renderer);
 scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.05).texture;
-scene.environmentIntensity = 0.42;
+scene.environmentIntensity = 0.72;
 
-const hemi = new THREE.HemisphereLight(0xc5daf0, 0xe4c48a, 0.72);
+const hemi = new THREE.HemisphereLight(0x7eb6ef, 0xe4c48e, 0.52);
 scene.add(hemi);
-const key = new THREE.DirectionalLight(0xf3f7fb, 1.05);
-key.position.set(36, 54, 28);
-key.target.position.set(24, 0, 0);
+const key = new THREE.DirectionalLight(0xfff2d6, 2.25);
+key.position.set(58, 34, 16);
+key.target.position.set(12, 0, 2);
 key.castShadow = true;
 key.shadow.mapSize.set(2048, 2048);
-key.shadow.camera.left = -70;
-key.shadow.camera.right = 70;
-key.shadow.camera.top = 46;
-key.shadow.camera.bottom = -46;
-key.shadow.camera.near = 8;
-key.shadow.camera.far = 150;
-key.shadow.bias = -0.00025;
-key.shadow.normalBias = 0.035;
+key.shadow.camera.left = -80;
+key.shadow.camera.right = 80;
+key.shadow.camera.top = 62;
+key.shadow.camera.bottom = -62;
+key.shadow.camera.near = 2;
+key.shadow.camera.far = 220;
+key.shadow.bias = -0.0004;
+key.shadow.normalBias = 0.018;
 scene.add(key, key.target);
-const rim = new THREE.DirectionalLight(0xc5d6ea, 0.36);
+const rim = new THREE.DirectionalLight(0x9ec8f0, 0.28);
 rim.position.set(-30, 22, -24);
 scene.add(rim);
-const warm = new THREE.DirectionalLight(0xffd2b0, 0.1);
+const warm = new THREE.DirectionalLight(0xffd2b0, 0.06);
 warm.position.set(48, 10, 16);
 scene.add(warm);
 const baseLight = { hemi: hemi.intensity, key: key.intensity, rim: rim.intensity, warm: warm.intensity, env: scene.environmentIntensity };
@@ -136,7 +136,7 @@ const dof = { ap: 0, mb: 0 };
 
 const QUALITY = {
   low: { dpr: 0.85, shadow: 0, particles: 0.45, maxDpr: 1 },
-  mid: { dpr: 1.15, shadow: 1024, particles: 0.75, maxDpr: 1.5 },
+  mid: { dpr: 1.15, shadow: 2048, particles: 0.75, maxDpr: 1.5 },
   high: { dpr: 1.5, shadow: 2048, particles: 1, maxDpr: 2 },
 };
 
@@ -630,7 +630,7 @@ function bindUI() {
       bloomS: 0.14,
       bloomT: 0.94,
       bloomR: 0.22,
-      exposure: 0.86,
+      exposure: 0.84,
       light: 1,
       flow: 1,
     });
@@ -639,11 +639,11 @@ function bindUI() {
     $("bloomS").value = 0.14;
     $("bloomT").value = 0.94;
     $("bloomR").value = 0.22;
-    $("exposure").value = 0.86;
+    $("exposure").value = 0.84;
     $("light").value = 1;
     $("flow").value = 1;
     ["apV", "mbV", "bsV", "btV", "brV", "exV", "liV", "flV"].forEach((id, i) => {
-      const v = [0.7, 5.6, 0.14, 0.94, 0.22, 0.86, 1, 1][i];
+      const v = [0.7, 5.6, 0.14, 0.94, 0.22, 0.84, 1, 1][i];
       $(id).textContent = i === 1 ? v.toFixed(1) : v.toFixed(2);
     });
     applyQuality(pickQuality());
