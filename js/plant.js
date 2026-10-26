@@ -237,6 +237,41 @@ function curveFrom(pts) {
   );
 }
 
+// Convex slice of a circle in the XY plane (world X / -Z after the mesh is laid flat).
+// seaSide keeps the half where local x <= shoreLocal. The two slices share one rim.
+function coastDiscGeometry(radius, shoreLocal, seaSide, segments = 180) {
+  const k = Math.max(-1, Math.min(1, shoreLocal / radius));
+  const a0 = Math.acos(k);
+  const start = seaSide ? a0 : -a0;
+  const end = seaSide ? Math.PI * 2 - a0 : a0;
+  const steps = Math.max(24, Math.round(segments * (end - start) / (Math.PI * 2)));
+  const arc = [];
+  for (let i = 0; i <= steps; i++) {
+    const a = start + ((end - start) * i) / steps;
+    arc.push([Math.cos(a) * radius, Math.sin(a) * radius]);
+  }
+  const positions = [];
+  const uvs = [];
+  const mx = shoreLocal;
+  const my = 0;
+  for (let i = 0; i < arc.length - 1; i++) {
+    const tri = [
+      [mx, my],
+      arc[i],
+      arc[i + 1],
+    ];
+    for (const [x, y] of tri) {
+      positions.push(x, y, 0);
+      uvs.push(x * 0.012 + 0.5, y * 0.012 + 0.5);
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+  geo.computeVertexNormals();
+  return geo;
+}
+
 export function createPlant(scene) {
   materials();
   const root = new THREE.Group();
@@ -256,12 +291,16 @@ export function createPlant(scene) {
     }
   });
   sandTex.wrapS = sandTex.wrapT = THREE.RepeatWrapping;
-  sandTex.repeat.set(28, 18);
+  sandTex.repeat.set(6, 6);
   const sandMat = std(0xf6d7a4, 0.0, 0.96, { map: sandTex });
-  const sand = new THREE.Mesh(new THREE.PlaneGeometry(170, 150), sandMat);
+  // One disc: sand on the land side of the quay, Water2 on the sea side. Radius 118.
+  const discCenter = new THREE.Vector3(22, 0, 2);
+  const discRadius = 104;
+  const shoreX = -14.2;
+  const shoreLocal = shoreX - discCenter.x;
+  const sand = new THREE.Mesh(coastDiscGeometry(discRadius, shoreLocal, false), sandMat);
   sand.rotation.x = -Math.PI / 2;
-  // Land side of the quay only, so the sheet does not cover the sea.
-  sand.position.set(72, -0.03, 14);
+  sand.position.set(discCenter.x, -0.02, discCenter.z);
   sand.receiveShadow = true;
   root.add(sand);
   function dune(x, z, rx, ry, rz, rot) {
@@ -278,7 +317,7 @@ export function createPlant(scene) {
   dune(16, 34, 24, 1.7, 9, 0.15);
   dune(42, 36, 20, 2.3, 8, -0.25);
   dune(68, 30, 18, 2.8, 8, 0.4);
-  dune(92, 18, 16, 3.4, 10, 0.2);
+  dune(78, 14, 14, 2.6, 8, 0.2);
   dune(-8, 22, 14, 1.9, 6, 0.2);
 
   const cmap = concreteMap();
@@ -292,16 +331,12 @@ export function createPlant(scene) {
 
   addBox(root, 2.2, 3.2, 42, MAT.concreteDark, -16.2, -0.3, 0, null, true);
 
-  // Coastal seawater. Plane stays in XY (facing +Z); Water2's reflector
+  // Coastal seawater. Geometry stays in XY (facing +Z); Water2's reflector
   // assumes that orientation and the mesh rotation lays it onto the horizon.
-  // Color is multiplied into reflection and refraction, so it stays a clear
-  // blue (not white, not navy). Modest reflectivity keeps the elevated view
-  // on the turquoise bed instead of a sky mirror. Fog stays off this material.
-  const seaWidth = 340;
-  const seaDepth = 520;
-  const shoreX = -14.2;
+  // The mesh is the sea slice of the same disc as the sand. Color is multiplied
+  // into reflection and refraction, so it stays a clear blue. Fog stays off.
   const seaY = -0.18;
-  const sea = new Water(new THREE.PlaneGeometry(seaWidth, seaDepth), {
+  const sea = new Water(coastDiscGeometry(discRadius, shoreLocal, true), {
     color: 0x69b7e2,
     scale: 12,
     flowSpeed: 0.016,
@@ -314,13 +349,11 @@ export function createPlant(scene) {
     normalMap1: waterTex("Water_2_M_Normal.jpg"),
   });
   sea.rotation.x = -Math.PI / 2;
-  sea.position.set(shoreX - seaWidth / 2, seaY, 0);
-  // Keep the surface itself out of the scene fog so the far bay stays
-  // a textured sea instead of dissolving into a flat grey sheet.
+  sea.position.set(discCenter.x, seaY, discCenter.z);
   sea.material.fog = false;
   root.add(sea);
   const seabed = new THREE.Mesh(
-    new THREE.PlaneGeometry(seaWidth + 20, seaDepth + 20),
+    coastDiscGeometry(discRadius, shoreLocal, true),
     new THREE.ShaderMaterial({
       side: THREE.DoubleSide,
       uniforms: { uShore: { value: -17.2 } },
@@ -341,8 +374,49 @@ export function createPlant(scene) {
     })
   );
   seabed.rotation.x = -Math.PI / 2;
-  seabed.position.set(shoreX - seaWidth / 2, seaY - 1.15, 0);
+  seabed.position.set(discCenter.x, seaY - 1.15, discCenter.z);
   root.add(seabed);
+  const rim = new THREE.Mesh(
+    new THREE.TorusGeometry(discRadius, 0.38, 8, 180),
+    std(0xddd6cc, 0.04, 0.82)
+  );
+  rim.rotation.x = -Math.PI / 2;
+  rim.position.set(discCenter.x, 0.12, discCenter.z);
+  rim.receiveShadow = true;
+  root.add(rim);
+  const skirt = new THREE.Mesh(
+    new THREE.RingGeometry(discRadius - 0.2, discRadius + 18, 160),
+    new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      uniforms: {
+        uShore: { value: shoreX },
+        uCenter: { value: new THREE.Vector2(discCenter.x, discCenter.z) },
+        uInner: { value: discRadius },
+        uOuter: { value: discRadius + 18 },
+      },
+      vertexShader: `varying vec3 vW; void main(){ vec4 w=modelMatrix*vec4(position,1.0); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }`,
+      fragmentShader: `
+        varying vec3 vW;
+        uniform float uShore;
+        uniform vec2 uCenter;
+        uniform float uInner;
+        uniform float uOuter;
+        void main() {
+          float dist = length(vW.xz - uCenter);
+          float fade = 1.0 - smoothstep(uInner, uOuter, dist);
+          vec3 sand = vec3(0.90, 0.72, 0.46);
+          vec3 sea = vec3(0.10, 0.42, 0.72);
+          vec3 col = mix(sand, sea, smoothstep(uShore + 6.0, uShore - 10.0, vW.x));
+          gl_FragColor = vec4(col, fade * fade * 0.9);
+        }
+      `,
+    })
+  );
+  skirt.rotation.x = -Math.PI / 2;
+  skirt.position.set(discCenter.x, seaY - 0.35, discCenter.z);
+  skirt.renderOrder = 1;
+  root.add(skirt);
   const foamMat = new THREE.ShaderMaterial({
     transparent: true,
     depthWrite: false,

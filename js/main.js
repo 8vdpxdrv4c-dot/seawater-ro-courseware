@@ -13,7 +13,7 @@ const $ = (id) => document.getElementById(id);
 const canvas = $("c");
 const q = new URLSearchParams(location.search);
 
-const PANORAMA = { pos: [58, 16, 60], target: [6, 3.2, -1], fov: 44 };
+const PANORAMA = { pos: [92, 22, 102], target: [10, 2.4, -2], fov: 46 };
 const ESTABLISH = { pos: [16, 42, 88], target: [22, 1.2, -2], fov: 32 };
 
 const settings = {
@@ -95,7 +95,7 @@ controls.dampingFactor = 0.08;
 controls.maxPolarAngle = Math.PI * 0.48;
 controls.minPolarAngle = 0.12;
 controls.minDistance = 4.5;
-controls.maxDistance = 130;
+controls.maxDistance = 180;
 controls.target.set(...ESTABLISH.target);
 controls.mouseButtons = {
   LEFT: THREE.MOUSE.ROTATE,
