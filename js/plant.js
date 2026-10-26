@@ -253,17 +253,19 @@ export function createPlant(scene) {
 
   // Coastal seawater. Plane stays in XY (facing +Z); Water2's reflector
   // assumes that orientation and the mesh rotation lays it onto the horizon.
-  // Official normal maps drive the ripples. Flow is a shoreward current:
-  // Water_1_M_Flow.jpg is a pool vortex and reads as a whirlpool at this scale.
+  // Dark coastal tint, modest base reflectivity, slow along-shore flow.
+  // Chop scale and the Water2 normal offset are raised so the surface
+  // still reads from the plant cameras. Fog is off on this material.
   const seaWidth = 340;
   const seaDepth = 520;
   const shoreX = -14.2;
+  const seaY = -0.18;
   const sea = new Water(new THREE.PlaneGeometry(seaWidth, seaDepth), {
-    color: 0x7aa8b6,
-    scale: 16,
-    flowSpeed: 0.06,
-    reflectivity: 0.5,
-    flowDirection: new THREE.Vector2(0.92, 0.28),
+    color: 0x1a4554,
+    scale: 22,
+    flowSpeed: 0.018,
+    reflectivity: 0.32,
+    flowDirection: new THREE.Vector2(0.18, 1),
     textureWidth: 1024,
     textureHeight: 1024,
     clipBias: 0.003,
@@ -271,15 +273,112 @@ export function createPlant(scene) {
     normalMap1: waterTex("Water_2_M_Normal.jpg"),
   });
   sea.rotation.x = -Math.PI / 2;
-  sea.position.set(shoreX - seaWidth / 2, -0.06, 0);
+  sea.position.set(shoreX - seaWidth / 2, seaY, 0);
+  // Keep the surface itself out of the scene fog so the far bay stays
+  // a textured sea instead of dissolving into a flat grey sheet.
+  sea.material.fog = false;
   root.add(sea);
   const seabed = new THREE.Mesh(
-    new THREE.PlaneGeometry(seaWidth + 8, seaDepth + 8),
-    new THREE.MeshBasicMaterial({ color: 0x04161e })
+    new THREE.PlaneGeometry(seaWidth + 20, seaDepth + 20),
+    new THREE.ShaderMaterial({
+      uniforms: { uShore: { value: -17.2 } },
+      vertexShader: `varying vec3 vW; void main(){ vec4 w=modelMatrix*vec4(position,1.0); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }`,
+      fragmentShader: `
+        varying vec3 vW;
+        uniform float uShore;
+        void main() {
+          float d = clamp((uShore - vW.x) / 70.0, 0.0, 1.0);
+          vec3 shore = vec3(0.07, 0.16, 0.16);
+          vec3 deep = vec3(0.006, 0.022, 0.04);
+          float rock = smoothstep(0.55, 0.92, sin(vW.x * 0.55) * sin(vW.z * 0.47) * 0.5 + 0.5);
+          vec3 col = mix(shore, deep, smoothstep(0.0, 0.8, d));
+          col = mix(col, vec3(0.03, 0.05, 0.05), rock * (1.0 - d));
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `,
+    })
   );
   seabed.rotation.x = -Math.PI / 2;
-  seabed.position.set(shoreX - seaWidth / 2, -2.4, 0);
+  seabed.position.set(shoreX - seaWidth / 2, seaY - 2.8, 0);
   root.add(seabed);
+  const foamMat = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.NormalBlending,
+    uniforms: { uTime: { value: 0 } },
+    vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+    fragmentShader: `
+      varying vec2 vUv;
+      uniform float uTime;
+      void main() {
+        float across = smoothstep(0.0, 0.18, vUv.x) * smoothstep(1.0, 0.35, vUv.x);
+        float n = sin(vUv.y * 90.0 + uTime * 1.4) * sin(vUv.y * 37.0 - uTime * 0.6);
+        float band = across * (0.25 + 0.75 * smoothstep(0.15, 0.85, n * 0.5 + 0.5));
+        float ends = smoothstep(0.0, 0.08, vUv.y) * smoothstep(1.0, 0.92, vUv.y);
+        gl_FragColor = vec4(0.82, 0.9, 0.92, band * ends * 0.5);
+      }
+    `,
+  });
+  function foamPatch(x, z, w, d, yaw) {
+    const g = new THREE.Group();
+    g.rotation.x = -Math.PI / 2;
+    g.position.set(x, seaY + 0.05, z);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), foamMat);
+    m.rotation.z = yaw || 0;
+    m.renderOrder = 4;
+    g.add(m);
+    root.add(g);
+  }
+  [
+    [-18.7, -10.5, 2.2, 3.4, 0.2],
+    [-19.1, -4.2, 1.6, 4.2, -0.15],
+    [-18.5, 2.4, 2.4, 3.1, 0.05],
+    [-19.3, 7.6, 1.8, 3.8, 0.25],
+    [-18.8, 13.2, 2.0, 2.6, -0.1],
+    [-27.2, 1.8, 1.4, 1.6, 0.4],
+    [-29.6, -1.5, 1.2, 1.8, -0.3],
+    [-20.6, 22.4, 2.6, 3.2, 0.15],
+    [-23.8, 26.2, 2.0, 2.8, -0.2],
+  ].forEach((p) => foamPatch(p[0], p[1], p[2], p[3], p[4]));
+  tickers.push((t) => {
+    foamMat.uniforms.uTime.value = t;
+  });
+
+  const rockMat = std(0x1e262c, 0.22, 0.38);
+  const rocks = [
+    [-18.8, -11.2, 1.5, 0.85, 1.2, 0.4],
+    [-19.6, -7.4, 0.9, 0.5, 0.8, 1.2],
+    [-18.3, -3.6, 1.9, 1.05, 1.4, 0.15],
+    [-19.9, 0.8, 1.1, 0.6, 0.95, 2.1],
+    [-18.5, 5.2, 2.2, 1.15, 1.6, 0.6],
+    [-19.7, 9.4, 1.2, 0.55, 1.0, 1.3],
+    [-18.6, 13.8, 1.6, 0.8, 1.25, 0.3],
+    [-20.6, -14.2, 1.3, 0.65, 1.1, 0.9],
+    [-29.5, 1.7, 0.85, 0.4, 0.7, 0.5],
+    [-26.8, -1.7, 1.05, 0.48, 0.85, 1.1],
+    [-30.4, -0.6, 0.7, 0.32, 0.6, 0.2],
+    [-27.6, 2.4, 0.6, 0.28, 0.5, 0.8],
+    [-21.4, 23.5, 2.5, 1.35, 1.9, 0.35],
+    [-24.6, 27.2, 1.7, 0.95, 1.4, 1.05],
+    [-19.4, 21.6, 1.35, 0.75, 1.15, 0.2],
+    [-27.2, 24.4, 1.15, 0.6, 0.95, 0.7],
+  ];
+  rocks.forEach(([x, z, sx, sy, sz, rot]) => {
+    const rock = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 8), rockMat);
+    rock.scale.set(sx, sy, sz);
+    rock.rotation.y = rot;
+    rock.position.set(x, seaY + sy * 0.55, z);
+    rock.castShadow = true;
+    rock.receiveShadow = true;
+    root.add(rock);
+  });
+  const stain = new THREE.Mesh(
+    new THREE.PlaneGeometry(38, 0.85),
+    std(0x10161c, 0.45, 0.32)
+  );
+  stain.rotation.y = Math.PI / 2;
+  stain.position.set(-17.34, seaY + 0.42, 0);
+  root.add(stain);
 
   const skyGeo = new THREE.SphereGeometry(280, 32, 20);
   const skyMat = new THREE.ShaderMaterial({
