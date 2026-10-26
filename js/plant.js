@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { Water } from "three/addons/objects/Water2.js";
 
 const MAT = {};
 const GEO = new Map();
@@ -212,6 +213,15 @@ function glass(hex) {
   return GLASS[k];
 }
 
+function waterTex(file) {
+  const tex = new THREE.TextureLoader().load(
+    new URL(`../vendor/three/examples/textures/water/${file}`, import.meta.url).href
+  );
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.colorSpace = THREE.NoColorSpace;
+  return tex;
+}
+
 function curveFrom(pts) {
   return new THREE.CatmullRomCurve3(
     pts.map((p) => new THREE.Vector3(p[0], p[1], p[2])),
@@ -241,45 +251,35 @@ export function createPlant(scene) {
 
   addBox(root, 2.2, 3.2, 42, MAT.concreteDark, -16.2, -0.3, 0, null, true);
 
-  const seaGeo = new THREE.PlaneGeometry(420, 420, 80, 80);
-  seaGeo.rotateX(-Math.PI / 2);
-  const seaMat = new THREE.ShaderMaterial({
-    uniforms: { uTime: { value: 0 } },
-    vertexShader: `
-      uniform float uTime;
-      varying vec3 vW;
-      void main() {
-        vec3 p = position;
-        float w1 = sin(p.x * 0.08 + uTime * 0.7) * 0.12;
-        float w2 = sin(p.z * 0.11 + uTime * 0.55) * 0.08;
-        p.y += w1 + w2;
-        vec4 w = modelMatrix * vec4(p, 1.0);
-        vW = w.xyz;
-        gl_Position = projectionMatrix * viewMatrix * w;
-      }
-    `,
-    fragmentShader: `
-      varying vec3 vW;
-      uniform float uTime;
-      void main() {
-        float d = smoothstep(-18.0, 8.0, vW.x);
-        vec3 shore = vec3(0.06, 0.28, 0.34);
-        vec3 deep = vec3(0.02, 0.08, 0.14);
-        vec3 col = mix(shore, deep, d);
-        float glint = pow(max(sin(vW.x * 0.35 + vW.z * 0.22 + uTime * 0.8), 0.0), 18.0);
-        col += vec3(0.35, 0.6, 0.65) * glint * 0.28;
-        float foam = exp(-abs(vW.x + 16.0) * 0.55) * 0.35;
-        col += vec3(0.65, 0.82, 0.86) * foam;
-        gl_FragColor = vec4(col, 1.0);
-      }
-    `,
+  // Coastal seawater. Plane stays in XY (facing +Z); Water2's reflector
+  // assumes that orientation and the mesh rotation lays it onto the horizon.
+  // Official normal maps drive the ripples. Flow is a shoreward current:
+  // Water_1_M_Flow.jpg is a pool vortex and reads as a whirlpool at this scale.
+  const seaWidth = 340;
+  const seaDepth = 520;
+  const shoreX = -14.2;
+  const sea = new Water(new THREE.PlaneGeometry(seaWidth, seaDepth), {
+    color: 0x7aa8b6,
+    scale: 16,
+    flowSpeed: 0.06,
+    reflectivity: 0.5,
+    flowDirection: new THREE.Vector2(0.92, 0.28),
+    textureWidth: 1024,
+    textureHeight: 1024,
+    clipBias: 0.003,
+    normalMap0: waterTex("Water_1_M_Normal.jpg"),
+    normalMap1: waterTex("Water_2_M_Normal.jpg"),
   });
-  const sea = new THREE.Mesh(seaGeo, seaMat);
-  sea.position.set(-180, -0.05, 0);
+  sea.rotation.x = -Math.PI / 2;
+  sea.position.set(shoreX - seaWidth / 2, -0.06, 0);
   root.add(sea);
-  tickers.push((t) => {
-    seaMat.uniforms.uTime.value = t;
-  });
+  const seabed = new THREE.Mesh(
+    new THREE.PlaneGeometry(seaWidth + 8, seaDepth + 8),
+    new THREE.MeshBasicMaterial({ color: 0x04161e })
+  );
+  seabed.rotation.x = -Math.PI / 2;
+  seabed.position.set(shoreX - seaWidth / 2, -2.4, 0);
+  root.add(seabed);
 
   const skyGeo = new THREE.SphereGeometry(280, 32, 20);
   const skyMat = new THREE.ShaderMaterial({

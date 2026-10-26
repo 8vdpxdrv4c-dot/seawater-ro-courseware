@@ -30,7 +30,7 @@ python3 -m http.server 8734
 - `js/content.js`：各设备的中文说明
 - `js/plant.js`：厂区模型、管道、箭头和粒子
 - `js/main.js`：渲染、后期、镜头和交互
-- `vendor/three/`：Three.js 与后期通道（OrbitControls、EffectComposer、UnrealBloomPass、BokehPass）
+- `vendor/three/`：Three.js、后期通道，以及海水用的 Water2（Reflector / Refractor 和水面法线贴图）
 - `fonts/course.woff2`：课件用到的中文字形
 
 画面设置里的「低 / 中 / 高」会改分辨率和粒子数量。低画质仍然走 Bokeh 景深，近景不会变成一片糊。
