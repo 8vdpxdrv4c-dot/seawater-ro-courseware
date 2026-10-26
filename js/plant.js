@@ -9,28 +9,29 @@ function std(color, metalness, roughness, extra) {
 }
 
 function materials() {
-  MAT.steel = std(0x1c3e58, 0.82, 0.34);
-  MAT.steelDark = std(0x142838, 0.78, 0.42);
-  MAT.paint = std(0x1a4f86, 0.42, 0.38);
-  MAT.paintDeep = std(0x123056, 0.48, 0.4);
-  MAT.stainless = std(0xc5d3de, 0.9, 0.24);
-  MAT.tank = std(0xd7e6f2, 0.28, 0.4);
-  MAT.concrete = std(0x3c4a5c, 0.04, 0.92);
-  MAT.concreteDark = std(0x2a3544, 0.05, 0.95);
-  MAT.motor = std(0x1a212b, 0.45, 0.52);
-  MAT.yellow = std(0xd9a441, 0.35, 0.42);
-  MAT.rubber = std(0x14181e, 0.12, 0.72);
-  MAT.flange = std(0x9aa6b2, 0.85, 0.28);
-  MAT.intake = std(0x8a3a42, 0.4, 0.45);
-  MAT.rail = std(0xb7c3ce, 0.8, 0.32);
-  MAT.chemA = std(0xc9843a, 0.35, 0.4);
-  MAT.chemB = std(0x6d5caa, 0.35, 0.4);
-  MAT.chemC = std(0x2f8f9a, 0.4, 0.38);
+  // Daylight coastal plant: pale concrete, grey metal, white tanks, safety yellow only on valves.
+  MAT.steel = std(0x9aa3ab, 0.84, 0.32);
+  MAT.steelDark = std(0x6e777f, 0.78, 0.4);
+  MAT.paint = std(0xb7c0c6, 0.22, 0.42);
+  MAT.paintDeep = std(0x8e979f, 0.26, 0.46);
+  MAT.stainless = std(0xe7eef3, 0.92, 0.18);
+  MAT.tank = std(0xf3f6f8, 0.62, 0.24);
+  MAT.concrete = std(0xe7e9ec, 0.02, 0.9);
+  MAT.concreteDark = std(0xc9ccc8, 0.03, 0.92);
+  MAT.motor = std(0x3a4148, 0.42, 0.5);
+  MAT.yellow = std(0xf0c419, 0.28, 0.4);
+  MAT.rubber = std(0x2c3136, 0.08, 0.74);
+  MAT.flange = std(0xc5ced6, 0.86, 0.26);
+  MAT.intake = std(0xc45c58, 0.32, 0.42);
+  MAT.rail = std(0xd5dde4, 0.78, 0.3);
+  MAT.chemA = std(0xd4923c, 0.28, 0.4);
+  MAT.chemB = std(0x7a68b8, 0.28, 0.4);
+  MAT.chemC = std(0x3aa3ae, 0.32, 0.38);
   MAT.membrane = std(0xd5ecf5, 0.05, 0.35, { transparent: true, opacity: 0.42, side: THREE.DoubleSide, depthWrite: false });
-  MAT.tube = std(0xeaf8ff, 0.2, 0.25, { emissive: 0x8fdfff, emissiveIntensity: 0.25 });
-  MAT.water = std(0x146e78, 0.1, 0.18, { transparent: true, opacity: 0.55, roughness: 0.08 });
-  MAT.lamp = std(0xd7f6ff, 0.2, 0.3, { emissive: 0xbfefff, emissiveIntensity: 1.15 });
-  MAT.warmLamp = std(0xffe1c2, 0.2, 0.35, { emissive: 0xffc48a, emissiveIntensity: 0.85 });
+  MAT.tube = std(0xeaf8ff, 0.15, 0.22, { emissive: 0x8fdfff, emissiveIntensity: 0.06 });
+  MAT.water = std(0x2aa4b4, 0.08, 0.16, { transparent: true, opacity: 0.62, roughness: 0.08 });
+  MAT.lamp = std(0xfff6e8, 0.15, 0.35, { emissive: 0xffe2b0, emissiveIntensity: 0.32 });
+  MAT.warmLamp = std(0xffe1c2, 0.15, 0.38, { emissive: 0xffc48a, emissiveIntensity: 0.2 });
 }
 
 function geo(key, build) {
@@ -71,7 +72,7 @@ function addCyl(parent, rt, rb, h, mat, x, y, z, id, shadow = true, seg = 20) {
 function contact(parent, r, x, z) {
   const m = new THREE.Mesh(
     geo(`disc${r}`, () => new THREE.CircleGeometry(r, 24)),
-    new THREE.MeshBasicMaterial({ color: 0x02060c, transparent: true, opacity: 0.35, depthWrite: false })
+    new THREE.MeshBasicMaterial({ color: 0x5a636c, transparent: true, opacity: 0.22, depthWrite: false })
   );
   m.rotation.x = -Math.PI / 2;
   m.position.set(x, 0.025, z);
@@ -113,10 +114,15 @@ function canvasTex(w, h, draw) {
 
 function concreteMap() {
   return canvasTex(512, 512, (g) => {
-    g.fillStyle = "#2c3a4c";
+    g.fillStyle = "#dfe3e8";
     g.fillRect(0, 0, 512, 512);
-    g.strokeStyle = "rgba(0,0,0,.35)";
-    g.lineWidth = 3;
+    for (let i = 0; i < 2400; i++) {
+      const a = Math.random() * 0.05;
+      g.fillStyle = Math.random() > 0.5 ? `rgba(130,140,150,${a})` : `rgba(255,255,255,${a})`;
+      g.fillRect(Math.random() * 512, Math.random() * 512, 2, 2);
+    }
+    g.strokeStyle = "rgba(150, 158, 166, 0.45)";
+    g.lineWidth = 4;
     for (let i = 0; i <= 512; i += 128) {
       g.beginPath();
       g.moveTo(i, 0);
@@ -198,8 +204,8 @@ function glassMaterial(hex) {
         vec3 V = normalize(cameraPosition - vW);
         float nd = abs(dot(normalize(vN), V));
         float rim = pow(1.0 - nd, 1.35);
-        float alpha = mix(0.05, 0.9, rim);
-        vec3 col = mix(uColor * 0.25, uColor, rim);
+        float alpha = mix(0.12, 0.78, rim);
+        vec3 col = mix(uColor * 0.62, uColor, rim);
         gl_FragColor = vec4(col, alpha);
       }
     `,
@@ -240,10 +246,44 @@ export function createPlant(scene) {
   const flows = [];
   const plaques = [];
 
+  const sandTex = canvasTex(512, 512, (g) => {
+    g.fillStyle = "#f0c98a";
+    g.fillRect(0, 0, 512, 512);
+    for (let i = 0; i < 5000; i++) {
+      const a = 0.04 + Math.random() * 0.12;
+      g.fillStyle = Math.random() > 0.55 ? `rgba(176,112,48,${a})` : `rgba(255,236,196,${a})`;
+      g.fillRect(Math.random() * 512, Math.random() * 512, 3, 2);
+    }
+  });
+  sandTex.wrapS = sandTex.wrapT = THREE.RepeatWrapping;
+  sandTex.repeat.set(28, 18);
+  const sandMat = std(0xf6d7a4, 0.0, 0.96, { map: sandTex });
+  const sand = new THREE.Mesh(new THREE.PlaneGeometry(170, 150), sandMat);
+  sand.rotation.x = -Math.PI / 2;
+  // Land side of the quay only, so the sheet does not cover the sea.
+  sand.position.set(72, -0.03, 14);
+  sand.receiveShadow = true;
+  root.add(sand);
+  function dune(x, z, rx, ry, rz, rot) {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(1, 28, 16), sandMat);
+    m.scale.set(rx, ry, rz);
+    m.position.set(x, ry * 0.22, z);
+    m.rotation.y = rot || 0;
+    m.receiveShadow = true;
+    root.add(m);
+  }
+  // Low desert dunes in the opening foreground and along the coast.
+  dune(-2, 26, 16, 2.2, 7, 0.35);
+  dune(16, 34, 24, 1.7, 9, 0.15);
+  dune(42, 36, 20, 2.3, 8, -0.25);
+  dune(68, 30, 18, 2.8, 8, 0.4);
+  dune(92, 18, 16, 3.4, 10, 0.2);
+  dune(-8, 22, 14, 1.9, 6, 0.2);
+
   const cmap = concreteMap();
   cmap.wrapS = cmap.wrapT = THREE.RepeatWrapping;
   cmap.repeat.set(18, 10);
-  const groundMat = std(0xffffff, 0.08, 0.88, { map: cmap });
+  const groundMat = std(0xf4f6f8, 0.02, 0.88, { map: cmap });
   const ground = new THREE.Mesh(new THREE.BoxGeometry(92, 0.8, 36), groundMat);
   ground.position.set(28, -0.4, 0);
   ground.receiveShadow = true;
@@ -253,19 +293,19 @@ export function createPlant(scene) {
 
   // Coastal seawater. Plane stays in XY (facing +Z); Water2's reflector
   // assumes that orientation and the mesh rotation lays it onto the horizon.
-  // Dark coastal tint, modest base reflectivity, slow along-shore flow.
-  // Chop scale and the Water2 normal offset are raised so the surface
-  // still reads from the plant cameras. Fog is off on this material.
+  // Color is multiplied into reflection and refraction, so it stays a clear
+  // blue (not white, not navy). Modest reflectivity keeps the elevated view
+  // on the turquoise bed instead of a sky mirror. Fog stays off this material.
   const seaWidth = 340;
   const seaDepth = 520;
   const shoreX = -14.2;
   const seaY = -0.18;
   const sea = new Water(new THREE.PlaneGeometry(seaWidth, seaDepth), {
-    color: 0xa9cdd8,
-    scale: 22,
-    flowSpeed: 0.022,
-    reflectivity: 0.34,
-    flowDirection: new THREE.Vector2(0.18, 1),
+    color: 0x69b7e2,
+    scale: 12,
+    flowSpeed: 0.016,
+    reflectivity: 0.2,
+    flowDirection: new THREE.Vector2(0.12, 1),
     textureWidth: 1024,
     textureHeight: 1024,
     clipBias: 0.003,
@@ -288,19 +328,19 @@ export function createPlant(scene) {
         varying vec3 vW;
         uniform float uShore;
         void main() {
-          float d = clamp((uShore - vW.x) / 70.0, 0.0, 1.0);
-          vec3 shore = vec3(0.11, 0.30, 0.34);
-          vec3 deep = vec3(0.045, 0.16, 0.24);
-          float rock = smoothstep(0.55, 0.92, sin(vW.x * 0.55) * sin(vW.z * 0.47) * 0.5 + 0.5);
-          vec3 col = mix(shore, deep, smoothstep(0.0, 0.8, d));
-          col = mix(col, vec3(0.05, 0.10, 0.11), rock * (1.0 - d));
+          float d = clamp((uShore - vW.x) / 150.0, 0.0, 1.0);
+          vec3 shore = vec3(0.22, 0.95, 0.92);
+          vec3 deep = vec3(0.015, 0.20, 0.55);
+          float bed = smoothstep(0.35, 0.9, sin(vW.x * 0.31) * sin(vW.z * 0.27) * 0.5 + 0.5);
+          vec3 col = mix(shore, deep, smoothstep(0.05, 0.85, d));
+          col = mix(col, vec3(0.95, 1.05, 0.72), bed * (1.0 - smoothstep(0.15, 0.7, d)) * 0.65);
           gl_FragColor = vec4(col, 1.0);
         }
       `,
     })
   );
   seabed.rotation.x = -Math.PI / 2;
-  seabed.position.set(shoreX - seaWidth / 2, seaY - 2.8, 0);
+  seabed.position.set(shoreX - seaWidth / 2, seaY - 1.15, 0);
   root.add(seabed);
   const foamMat = new THREE.ShaderMaterial({
     transparent: true,
@@ -347,7 +387,7 @@ export function createPlant(scene) {
 
   const stain = new THREE.Mesh(
     new THREE.PlaneGeometry(38, 0.85),
-    std(0x10161c, 0.45, 0.32)
+    std(0x7d8680, 0.18, 0.42)
   );
   stain.rotation.y = Math.PI / 2;
   stain.position.set(-17.34, seaY + 0.42, 0);
@@ -362,11 +402,14 @@ export function createPlant(scene) {
       varying vec3 vP;
       void main() {
         float h = normalize(vP).y;
-        vec3 zen = vec3(0.015, 0.04, 0.09);
-        vec3 mid = vec3(0.05, 0.14, 0.28);
-        vec3 hor = vec3(0.36, 0.28, 0.26);
-        vec3 col = mix(hor, mid, smoothstep(-0.02, 0.22, h));
-        col = mix(col, zen, smoothstep(0.16, 0.72, h));
+        vec3 zen = vec3(0.27, 0.42, 0.66);
+        vec3 mid = vec3(0.46, 0.60, 0.76);
+        vec3 hor = vec3(0.70, 0.76, 0.80);
+        vec3 col = mix(hor, mid, smoothstep(0.0, 0.32, h));
+        col = mix(col, zen, smoothstep(0.2, 0.78, h));
+        float cloud = sin(vP.x * 0.018) * sin(vP.z * 0.015) * sin(vP.x * 0.007 + vP.z * 0.009);
+        cloud = smoothstep(-0.05, 0.55, cloud) * smoothstep(0.08, 0.42, h);
+        col = mix(col, vec3(0.78, 0.84, 0.88), cloud * 0.28);
         gl_FragColor = vec4(col, 1.0);
       }
     `,
@@ -375,15 +418,8 @@ export function createPlant(scene) {
   sky.position.y = 10;
   scene.add(sky);
 
-  const moon = new THREE.Mesh(
-    new THREE.SphereGeometry(3.2, 24, 16),
-    new THREE.MeshBasicMaterial({ color: 0xe7eef8 })
-  );
-  moon.position.set(-70, 78, -30);
-  scene.add(moon);
-
   function hill(x, z, rx, ry, rz, rot) {
-    const m = new THREE.Mesh(new THREE.SphereGeometry(1, 18, 12), std(0x16324a, 0.15, 0.9));
+    const m = new THREE.Mesh(new THREE.SphereGeometry(1, 18, 12), std(0xe8c98a, 0.0, 0.96));
     m.scale.set(rx, ry, rz);
     m.position.set(x, ry * 0.15, z);
     m.rotation.y = rot || 0;
@@ -396,21 +432,29 @@ export function createPlant(scene) {
   hill(-8, -40, 18, 4, 10, 0.6);
 
   // road
-  addBox(root, 86, 0.04, 4.2, std(0x1a2432, 0.2, 0.8), 28, 0.03, 12.2, null, false);
+  addBox(root, 86, 0.04, 4.2, std(0x3a3f46, 0.12, 0.86), 28, 0.03, 12.2, null, false);
   for (let i = 0; i < 18; i++) {
-    addBox(root, 1.6, 0.02, 0.12, std(0xc5d4e4, 0.2, 0.5), -8 + i * 4.4, 0.06, 12.2, null, false);
+    addBox(root, 1.6, 0.02, 0.12, std(0xf4f6f8, 0.05, 0.55), -8 + i * 4.4, 0.06, 12.2, null, false);
   }
 
   function pole(x, z) {
     addCyl(root, 0.08, 0.1, 6.2, MAT.steelDark, x, 3.1, z, null, false, 8);
     addBox(root, 1.1, 0.12, 0.28, MAT.steel, x, 6.15, z - 0.2, null, false);
     const lamp = addBox(root, 0.7, 0.08, 0.2, MAT.lamp, x, 6.02, z - 0.2, null, false);
-    const pl = new THREE.PointLight(0xc6ecff, 1.05, 14, 2);
+    const pl = new THREE.PointLight(0xfff1d6, 0.32, 9, 2);
     pl.position.set(x, 5.7, z - 0.2);
     root.add(pl);
     return lamp;
   }
   [-6, 12, 30, 48, 64].forEach((x) => pole(x, 14.2));
+
+  // A few safety-yellow runs, same places the mock picks out valves and headers.
+  const y1 = addCyl(root, 0.11, 0.11, 9.5, MAT.yellow, 22.5, 2.55, 1.35, null, false, 12);
+  y1.rotation.z = Math.PI / 2;
+  const y2 = addCyl(root, 0.09, 0.09, 6.2, MAT.yellow, 33.5, 3.15, -0.85, null, false, 12);
+  y2.rotation.z = Math.PI / 2;
+  const y3 = addCyl(root, 0.08, 0.08, 3.4, MAT.yellow, 16.4, 2.15, -1.15, null, false, 10);
+  y3.rotation.x = Math.PI / 2;
 
   // control room behind the train
   const room = new THREE.Group();
@@ -418,7 +462,7 @@ export function createPlant(scene) {
   root.add(room);
   addBox(room, 6.5, 3.2, 3.4, MAT.paintDeep, 0, 1.6, 0);
   addBox(room, 6.6, 0.2, 3.6, MAT.steelDark, 0, 3.3, 0, null, false);
-  const winMat = std(0x071820, 0.1, 0.05, { emissive: 0x1c6d88, emissiveIntensity: 0.65 });
+  const winMat = std(0xd5e6f0, 0.04, 0.08, { emissive: 0xb7cddd, emissiveIntensity: 0.08 });
   addBox(room, 1.4, 1.1, 0.08, winMat, -1.6, 1.8, 1.72, null, false);
   addBox(room, 1.4, 1.1, 0.08, winMat, 1.6, 1.8, 1.72, null, false);
   addBox(room, 0.9, 2.1, 0.08, MAT.steelDark, 0, 1.05, 1.72, null, false);

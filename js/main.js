@@ -13,7 +13,7 @@ const $ = (id) => document.getElementById(id);
 const canvas = $("c");
 const q = new URLSearchParams(location.search);
 
-const PANORAMA = { pos: [24, 18.5, 42], target: [22, 2.2, 0.4], fov: 36 };
+const PANORAMA = { pos: [40, 28, 50], target: [6, 1.2, 0], fov: 40 };
 const ESTABLISH = { pos: [16, 42, 88], target: [22, 1.2, -2], fov: 32 };
 
 const settings = {
@@ -26,7 +26,7 @@ const settings = {
   bloomS: 0.14,
   bloomT: 0.94,
   bloomR: 0.22,
-  exposure: 1.18,
+  exposure: 0.86,
   light: 1,
   flow: 1,
   fps: false,
@@ -43,22 +43,22 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = settings.exposure;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.setClearColor(0x163044, 1);
+renderer.setClearColor(0xd5e3f0, 1);
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x163044);
-scene.fog = new THREE.Fog(0x163044, 120, 280);
+scene.background = new THREE.Color(0xd5e3f0);
+scene.fog = new THREE.Fog(0xd5e3f0, 220, 520);
 
 const camera = new THREE.PerspectiveCamera(ESTABLISH.fov, 1, 0.25, 420);
 camera.position.set(...ESTABLISH.pos);
 
 const pmrem = new THREE.PMREMGenerator(renderer);
 scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.05).texture;
-scene.environmentIntensity = 0.62;
+scene.environmentIntensity = 0.42;
 
-const hemi = new THREE.HemisphereLight(0xb7d4f2, 0x243448, 0.95);
+const hemi = new THREE.HemisphereLight(0xc5daf0, 0xe4c48a, 0.72);
 scene.add(hemi);
-const key = new THREE.DirectionalLight(0xeef4ff, 2.7);
+const key = new THREE.DirectionalLight(0xf3f7fb, 1.05);
 key.position.set(36, 54, 28);
 key.target.position.set(24, 0, 0);
 key.castShadow = true;
@@ -72,10 +72,10 @@ key.shadow.camera.far = 150;
 key.shadow.bias = -0.00025;
 key.shadow.normalBias = 0.035;
 scene.add(key, key.target);
-const rim = new THREE.DirectionalLight(0x8ec4ff, 0.72);
+const rim = new THREE.DirectionalLight(0xc5d6ea, 0.36);
 rim.position.set(-30, 22, -24);
 scene.add(rim);
-const warm = new THREE.DirectionalLight(0xffb289, 0.22);
+const warm = new THREE.DirectionalLight(0xffd2b0, 0.1);
 warm.position.set(48, 10, 16);
 scene.add(warm);
 const baseLight = { hemi: hemi.intensity, key: key.intensity, rim: rim.intensity, warm: warm.intensity, env: scene.environmentIntensity };
@@ -630,7 +630,7 @@ function bindUI() {
       bloomS: 0.14,
       bloomT: 0.94,
       bloomR: 0.22,
-      exposure: 1.18,
+      exposure: 0.86,
       light: 1,
       flow: 1,
     });
@@ -639,11 +639,11 @@ function bindUI() {
     $("bloomS").value = 0.14;
     $("bloomT").value = 0.94;
     $("bloomR").value = 0.22;
-    $("exposure").value = 1.18;
+    $("exposure").value = 0.86;
     $("light").value = 1;
     $("flow").value = 1;
     ["apV", "mbV", "bsV", "btV", "brV", "exV", "liV", "flV"].forEach((id, i) => {
-      const v = [0.7, 5.6, 0.14, 0.94, 0.22, 1.18, 1, 1][i];
+      const v = [0.7, 5.6, 0.14, 0.94, 0.22, 0.86, 1, 1][i];
       $(id).textContent = i === 1 ? v.toFixed(1) : v.toFixed(2);
     });
     applyQuality(pickQuality());
