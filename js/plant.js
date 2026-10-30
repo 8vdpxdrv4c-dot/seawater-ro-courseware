@@ -954,7 +954,7 @@ export function createPlant(scene) {
       uniform float uTime;
       void main() {
         float along = vUv.y;
-        float flow = 0.55 + 0.45 * sin(along * 22.0 - uTime * 1.6);
+        float flow = 0.78 + 0.22 * sin(along * 18.0 - uTime * 1.6);
         float edge = smoothstep(0.0, 0.06, vUv.x) * smoothstep(1.0, 0.94, vUv.x);
         vec3 deep = vec3(0.2, 0.78, 0.92);
         vec3 bright = vec3(0.78, 0.97, 1.0);
