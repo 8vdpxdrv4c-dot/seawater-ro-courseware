@@ -142,13 +142,13 @@ function brickMap() {
 
 function beachMap() {
   return canvasTex(512, 512, (g) => {
-    g.fillStyle = "#e6d0a4";
+    g.fillStyle = "#f6e4bc";
     g.fillRect(0, 0, 512, 512);
     for (let i = 0; i < 28; i++) {
       const x = Math.random() * 512;
       const y = Math.random() * 512;
       const r = 30 + Math.random() * 70;
-      g.fillStyle = Math.random() > 0.5 ? "rgba(196,154,96,0.16)" : "rgba(255,236,196,0.14)";
+      g.fillStyle = Math.random() > 0.5 ? "rgba(214,176,112,0.12)" : "rgba(255,248,230,0.2)";
       g.beginPath();
       g.ellipse(x, y, r, r * 0.55, Math.random() * 3, 0, Math.PI * 2);
       g.fill();
@@ -156,9 +156,9 @@ function beachMap() {
     for (let i = 0; i < 14000; i++) {
       const roll = Math.random();
       const a = 0.15 + Math.random() * 0.45;
-      if (roll > 0.92) g.fillStyle = `rgba(120,86,48,${a})`;
-      else if (roll > 0.55) g.fillStyle = `rgba(168,124,72,${a * 0.7})`;
-      else g.fillStyle = `rgba(255,244,214,${a * 0.55})`;
+      if (roll > 0.94) g.fillStyle = `rgba(176,132,72,${a * 0.45})`;
+      else if (roll > 0.6) g.fillStyle = `rgba(210,170,110,${a * 0.35})`;
+      else g.fillStyle = `rgba(255,250,236,${a * 0.7})`;
       const s = roll > 0.97 ? 3 : 1 + (roll > 0.8 ? 1 : 0);
       g.fillRect(Math.random() * 512, Math.random() * 512, s, s);
     }
@@ -305,13 +305,14 @@ function buildIslandGeometry() {
       const sdf = islandSdf(x, z);
       const on = sdf <= 18;
       // Shore sits just under still water so the edge is a beach, not a rim.
+      // Gentle shelf: sand stays just under the surface for a wide turquoise shallows.
       const y = sdf >= 0
-        ? -0.22 - Math.min(sdf, 18) * 0.08
-        : -0.22 + Math.min(1, -sdf / 12) * 0.2;
+        ? -0.2 - Math.min(sdf, 24) * 0.04
+        : -0.2 + Math.min(1, -sdf / 10) * 0.18;
       valid.push(on);
       positions.push(x, y, z);
       uvs.push(x * 0.22, z * 0.22);
-      wet.push(Math.min(1, Math.max(0, (sdf + 16) / 15)));
+      wet.push(Math.min(1, Math.max(0, (sdf + 5.5) / 6.5)));
     }
   }
   const index = [];
@@ -346,7 +347,7 @@ export function createPlant(scene) {
   const sandTex = beachMap();
   sandTex.wrapS = sandTex.wrapT = THREE.RepeatWrapping;
   const sandMat = new THREE.MeshStandardMaterial({
-    color: 0xf3e6c8,
+    color: 0xfff4df,
     map: sandTex,
     metalness: 0.02,
     roughness: 0.94,
@@ -357,8 +358,8 @@ export function createPlant(scene) {
       .replace("#include <begin_vertex>", "#include <begin_vertex>\nvWet = wetness;");
     shader.fragmentShader = shader.fragmentShader
       .replace("#include <common>", "#include <common>\nvarying float vWet;")
-      .replace("#include <color_fragment>", "#include <color_fragment>\ndiffuseColor.rgb *= mix(vec3(1.0), vec3(0.55, 0.5, 0.42), clamp(vWet, 0.0, 1.0));")
-      .replace("#include <roughnessmap_fragment>", "float roughnessFactor = mix(0.96, 0.22, clamp(vWet, 0.0, 1.0));");
+      .replace("#include <color_fragment>", "#include <color_fragment>\ndiffuseColor.rgb *= mix(vec3(1.0), vec3(0.82, 0.68, 0.46), clamp(vWet, 0.0, 1.0));")
+      .replace("#include <roughnessmap_fragment>", "float roughnessFactor = mix(0.92, 0.16, clamp(vWet, 0.0, 1.0));");
   };
   // The plant sits on an island. Open ocean (js/ocean.js) surrounds it.
   const island = new THREE.Mesh(buildIslandGeometry(), sandMat);
@@ -381,9 +382,9 @@ export function createPlant(scene) {
   // Low desert dunes in the opening foreground and along the coast.
   dune(-2, 26, 16, 2.2, 7, 0.35);
   dune(16, 34, 24, 1.7, 9, 0.15);
-  dune(42, 36, 20, 2.3, 8, -0.25);
-  dune(68, 30, 18, 2.8, 8, 0.4);
-  dune(78, 14, 14, 2.6, 8, 0.2);
+  dune(30, 34, 16, 2.1, 7, -0.25);
+  dune(86, 16, 12, 2.2, 6, 0.4);
+  dune(78, 8, 12, 2.2, 6, 0.2);
   dune(-8, 22, 14, 1.9, 6, 0.2);
 
   const bricks = brickMap();
@@ -941,6 +942,47 @@ export function createPlant(scene) {
     fov: 32,
   });
 
+  // Product water leaves the tanks and runs onto the beach, so treated water meeting land is obvious.
+  const productMat = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    uniforms: { uTime: { value: 0 } },
+    vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+    fragmentShader: `
+      varying vec2 vUv;
+      uniform float uTime;
+      void main() {
+        float along = vUv.y;
+        float flow = 0.55 + 0.45 * sin(along * 22.0 - uTime * 1.6);
+        float edge = smoothstep(0.0, 0.06, vUv.x) * smoothstep(1.0, 0.94, vUv.x);
+        vec3 deep = vec3(0.2, 0.78, 0.92);
+        vec3 bright = vec3(0.78, 0.97, 1.0);
+        vec3 col = mix(deep, bright, flow);
+        gl_FragColor = vec4(col, 0.92 * edge);
+      }
+    `,
+  });
+  tickers.push((t) => {
+    productMat.uniforms.uTime.value = t;
+  });
+  function productSheet(x, z, w, len, y) {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, len), productMat);
+    m.rotation.x = -Math.PI / 2;
+    m.position.set(x, y, z);
+    m.renderOrder = 3;
+    root.add(m);
+  }
+  productSheet(60.8, 11, 2.6, 14, 0.08);
+  productSheet(63.4, 23, 4.2, 14, 0.05);
+  productSheet(66.5, 35, 6.2, 14, 0.03);
+  const pool = new THREE.Mesh(new THREE.CircleGeometry(5.2, 32), productMat);
+  pool.rotation.x = -Math.PI / 2;
+  pool.position.set(68, 0.02, 44);
+  pool.renderOrder = 3;
+  root.add(pool);
+  addBox(root, 1.8, 0.35, 1.2, std(0xd8e2e8, 0.2, 0.45), 61.2, 0.22, 12.4, null, false);
+
   // ---------- pipes ----------
   const pipeDefs = [
     {
@@ -1054,6 +1096,20 @@ export function createPlant(scene) {
         [52.6, 2.6, 3.2],
         [56.2, 3.6, 2.4],
         [57.5, 4.3, 2.2],
+      ],
+    },
+    {
+      id: "product",
+      kind: "fw",
+      radius: 0.28,
+      color: 0x9eebff,
+      arrow: 0xf4feff,
+      speed: 0.16,
+      pts: [
+        [57.5, 0.85, 2.4],
+        [60.4, 0.55, 7.5],
+        [61.2, 0.28, 12.2],
+        [61.4, 0.12, 16.5],
       ],
     },
     {
