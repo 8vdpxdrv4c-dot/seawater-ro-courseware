@@ -56,21 +56,23 @@ const pmrem = new THREE.PMREMGenerator(renderer);
 scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.05).texture;
 scene.environmentIntensity = 0.72;
 
-const hemi = new THREE.HemisphereLight(0x6e8eae, 0x3a2818, 0.38);
+const hemi = new THREE.HemisphereLight(0x6e8eae, 0x3a2818, 0.28);
 scene.add(hemi);
-const key = new THREE.DirectionalLight(0xfff2d6, 2.25);
+const key = new THREE.DirectionalLight(0xfff2d6, 3.45);
 key.position.set(58, 34, 16);
 key.target.position.set(12, 0, 2);
 key.castShadow = true;
-key.shadow.mapSize.set(2048, 2048);
-key.shadow.camera.left = -80;
-key.shadow.camera.right = 80;
-key.shadow.camera.top = 62;
-key.shadow.camera.bottom = -62;
+key.shadow.intensity = 1.45;
+key.shadow.mapSize.set(4096, 4096);
+key.shadow.radius = 1;
+key.shadow.camera.left = -96;
+key.shadow.camera.right = 108;
+key.shadow.camera.top = 72;
+key.shadow.camera.bottom = -72;
 key.shadow.camera.near = 2;
-key.shadow.camera.far = 220;
-key.shadow.bias = -0.0004;
-key.shadow.normalBias = 0.018;
+key.shadow.camera.far = 280;
+key.shadow.bias = -0.00022;
+key.shadow.normalBias = 0.025;
 scene.add(key, key.target);
 const rim = new THREE.DirectionalLight(0x9ec8f0, 0.28);
 rim.position.set(-30, 22, -24);
@@ -100,8 +102,8 @@ scene.add(selectRing);
 const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
-controls.maxPolarAngle = Math.PI * 0.48;
-controls.minPolarAngle = 0.12;
+controls.maxPolarAngle = Math.PI * 0.45;
+controls.minPolarAngle = 0.16;
 controls.minDistance = 4.5;
 controls.maxDistance = 180;
 controls.target.set(...ESTABLISH.target);
@@ -111,6 +113,14 @@ controls.mouseButtons = {
   RIGHT: THREE.MOUSE.PAN,
 };
 controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
+
+const MIN_CAM_Y = 1.15;
+const MIN_TARGET_Y = 0.4;
+function clampAboveWater() {
+  if (controls.target.y < MIN_TARGET_Y) controls.target.y = MIN_TARGET_Y;
+  if (camera.position.y < MIN_CAM_Y) camera.position.y = MIN_CAM_Y;
+}
+controls.addEventListener("change", clampAboveWater);
 
 const composer = new EffectComposer(renderer);
 composer.addPass(ocean.opaquePass);
@@ -144,9 +154,9 @@ let fpsSma = 0;
 const dof = { ap: 0, mb: 0 };
 
 const QUALITY = {
-  low: { dpr: 0.85, shadow: 0, particles: 0.45, maxDpr: 1 },
-  mid: { dpr: 1.15, shadow: 2048, particles: 0.75, maxDpr: 1.5 },
-  high: { dpr: 1.5, shadow: 2048, particles: 1, maxDpr: 2 },
+  low: { dpr: 0.85, shadow: 2048, particles: 0.45, maxDpr: 1 },
+  mid: { dpr: 1.15, shadow: 4096, particles: 0.75, maxDpr: 1.5 },
+  high: { dpr: 1.5, shadow: 4096, particles: 1, maxDpr: 2 },
 };
 
 function pickQuality() {
@@ -220,6 +230,7 @@ function updateFly(now) {
     fly = null;
     controls.enabled = true;
   }
+  clampAboveWater();
 }
 
 function fmt(t) {
@@ -773,6 +784,7 @@ function frame() {
   if (introFlyStarted && !fly) intro = false;
   updateFly(now);
   controls.update();
+  clampAboveWater();
   if (running) runTime += dt;
   const targetFlow = running ? 1 : 0;
   flowAmt += (targetFlow - flowAmt) * (1 - Math.exp(-dt * 2.2));
