@@ -1,5 +1,4 @@
 import * as THREE from "three";
-import { Water } from "three/addons/objects/Water2.js";
 
 const MAT = {};
 const GEO = new Map();
@@ -219,15 +218,6 @@ function glass(hex) {
   return GLASS[k];
 }
 
-function waterTex(file) {
-  const tex = new THREE.TextureLoader().load(
-    new URL(`../vendor/three/examples/textures/water/${file}`, import.meta.url).href
-  );
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.colorSpace = THREE.NoColorSpace;
-  return tex;
-}
-
 function curveFrom(pts) {
   return new THREE.CatmullRomCurve3(
     pts.map((p) => new THREE.Vector3(p[0], p[1], p[2])),
@@ -293,7 +283,7 @@ export function createPlant(scene) {
   sandTex.wrapS = sandTex.wrapT = THREE.RepeatWrapping;
   sandTex.repeat.set(6, 6);
   const sandMat = std(0xf6d7a4, 0.0, 0.96, { map: sandTex });
-  // One disc: sand on the land side of the quay, Water2 on the sea side. Radius 118.
+  // One disc: sand on the land side of the quay, FFT ocean on the sea side.
   const discCenter = new THREE.Vector3(22, 0, 2);
   const discRadius = 104;
   const shoreX = -14.2;
@@ -331,36 +321,44 @@ export function createPlant(scene) {
 
   addBox(root, 2.2, 3.2, 42, MAT.concreteDark, -16.2, -0.3, 0, null, true);
 
-  // Coastal seawater. Geometry stays in XY (facing +Z); Water2's reflector
-  // assumes that orientation and the mesh rotation lays it onto the horizon.
-  // The mesh is the sea slice of the same disc as the sand. Color is multiplied
-  // into reflection and refraction, so it stays a clear blue. Fog stays off.
+  // Open sea is the Ultra-Water FFT surface (js/ocean.js), clipped to this
+  // same half-disc. The bed stays a coloured shoal so refraction has something
+  // to read; caustics are filled in once the ocean sim exists.
   const seaY = -0.18;
-  const sea = new Water(coastDiscGeometry(discRadius, shoreLocal, true), {
-    color: 0x69b7e2,
-    scale: 12,
-    flowSpeed: 0.016,
-    reflectivity: 0.2,
-    flowDirection: new THREE.Vector2(0.12, 1),
-    textureWidth: 1024,
-    textureHeight: 1024,
-    clipBias: 0.003,
-    normalMap0: waterTex("Water_1_M_Normal.jpg"),
-    normalMap1: waterTex("Water_2_M_Normal.jpg"),
-  });
-  sea.rotation.x = -Math.PI / 2;
-  sea.position.set(discCenter.x, seaY, discCenter.z);
-  sea.material.fog = false;
-  root.add(sea);
+  const sunDir = new THREE.Vector3(0.2, 0.46, -0.86).normalize();
+  const causticFlat = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1);
+  causticFlat.needsUpdate = true;
+  causticFlat.wrapS = causticFlat.wrapT = THREE.RepeatWrapping;
+  causticFlat.colorSpace = THREE.NoColorSpace;
+  causticFlat.magFilter = THREE.LinearFilter;
+  causticFlat.minFilter = THREE.LinearFilter;
   const seabed = new THREE.Mesh(
     coastDiscGeometry(discRadius, shoreLocal, true),
     new THREE.ShaderMaterial({
       side: THREE.DoubleSide,
-      uniforms: { uShore: { value: -17.2 } },
+      uniforms: {
+        uShore: { value: -17.2 },
+        uCaustics: { value: causticFlat },
+        uCausticsDeep: { value: causticFlat },
+        uCausticSun: { value: sunDir.clone() },
+      },
       vertexShader: `varying vec3 vW; void main(){ vec4 w=modelMatrix*vec4(position,1.0); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }`,
       fragmentShader: `
         varying vec3 vW;
         uniform float uShore;
+        uniform sampler2D uCaustics;
+        uniform sampler2D uCausticsDeep;
+        uniform vec3 uCausticSun;
+        float waveCaustic(vec2 entryXZ, float depth, float lod) {
+          vec2 uv = entryXZ * 0.0833333;
+          float v = textureLod(uCaustics, uv, lod).r;
+          if (depth > 1.5) {
+            vec2 dtex = textureLod(uCausticsDeep, uv, max(lod - 1.0, 0.0) + log2(max(depth / 10.0, 1.0))).rg;
+            v = depth < 4.0 ? mix(v, dtex.r, (depth - 1.5) / 2.5)
+                            : mix(dtex.r, dtex.g, clamp((depth - 4.0) / 6.0, 0.0, 1.0));
+          }
+          return mix(1.0, v, clamp(depth / 1.5, 0.0, 1.0));
+        }
         void main() {
           float d = clamp((uShore - vW.x) / 150.0, 0.0, 1.0);
           vec3 shore = vec3(0.22, 0.95, 0.92);
@@ -368,13 +366,18 @@ export function createPlant(scene) {
           float bed = smoothstep(0.35, 0.9, sin(vW.x * 0.31) * sin(vW.z * 0.27) * 0.5 + 0.5);
           vec3 col = mix(shore, deep, smoothstep(0.05, 0.85, d));
           col = mix(col, vec3(0.95, 1.05, 0.72), bed * (1.0 - smoothstep(0.15, 0.7, d)) * 0.65);
+          vec3 rs = refract(normalize(-uCausticSun), vec3(0.0, 1.0, 0.0), 0.751879);
+          float depth = 1.8;
+          vec2 entry = vW.xz + rs.xz / max(-rs.y, 0.05) * depth;
+          float cau = clamp(waveCaustic(entry, depth, 0.35), 0.0, 1.8);
+          col *= 0.7 + 0.5 * (cau / 1.8);
           gl_FragColor = vec4(col, 1.0);
         }
       `,
     })
   );
   seabed.rotation.x = -Math.PI / 2;
-  seabed.position.set(discCenter.x, seaY - 1.15, discCenter.z);
+  seabed.position.set(discCenter.x, seaY - 2.2, discCenter.z);
   root.add(seabed);
   const rim = new THREE.Mesh(
     new THREE.TorusGeometry(discRadius, 0.38, 8, 180),
@@ -417,49 +420,6 @@ export function createPlant(scene) {
   skirt.position.set(discCenter.x, seaY - 0.35, discCenter.z);
   skirt.renderOrder = 1;
   root.add(skirt);
-  const foamMat = new THREE.ShaderMaterial({
-    transparent: true,
-    depthWrite: false,
-    blending: THREE.NormalBlending,
-    uniforms: { uTime: { value: 0 } },
-    vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
-    fragmentShader: `
-      varying vec2 vUv;
-      uniform float uTime;
-      void main() {
-        float across = smoothstep(0.0, 0.18, vUv.x) * smoothstep(1.0, 0.35, vUv.x);
-        float n = sin(vUv.y * 90.0 + uTime * 1.4) * sin(vUv.y * 37.0 - uTime * 0.6);
-        float band = across * (0.25 + 0.75 * smoothstep(0.15, 0.85, n * 0.5 + 0.5));
-        float ends = smoothstep(0.0, 0.08, vUv.y) * smoothstep(1.0, 0.92, vUv.y);
-        gl_FragColor = vec4(0.82, 0.9, 0.92, band * ends * 0.5);
-      }
-    `,
-  });
-  function foamPatch(x, z, w, d, yaw) {
-    const g = new THREE.Group();
-    g.rotation.x = -Math.PI / 2;
-    g.position.set(x, seaY + 0.05, z);
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), foamMat);
-    m.rotation.z = yaw || 0;
-    m.renderOrder = 4;
-    g.add(m);
-    root.add(g);
-  }
-  [
-    [-18.7, -10.5, 2.2, 3.4, 0.2],
-    [-19.1, -4.2, 1.6, 4.2, -0.15],
-    [-18.5, 2.4, 2.4, 3.1, 0.05],
-    [-19.3, 7.6, 1.8, 3.8, 0.25],
-    [-18.8, 13.2, 2.0, 2.6, -0.1],
-    [-27.2, 1.8, 1.4, 1.6, 0.4],
-    [-29.6, -1.5, 1.2, 1.8, -0.3],
-    [-20.6, 22.4, 2.6, 3.2, 0.15],
-    [-23.8, 26.2, 2.0, 2.8, -0.2],
-  ].forEach((p) => foamPatch(p[0], p[1], p[2], p[3], p[4]));
-  tickers.push((t) => {
-    foamMat.uniforms.uTime.value = t;
-  });
-
   const stain = new THREE.Mesh(
     new THREE.PlaneGeometry(38, 0.85),
     std(0x7d8680, 0.18, 0.42)
@@ -472,9 +432,11 @@ export function createPlant(scene) {
   const skyMat = new THREE.ShaderMaterial({
     side: THREE.BackSide,
     depthWrite: false,
+    uniforms: { uSunDir: { value: sunDir } },
     vertexShader: `varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
     fragmentShader: `
       varying vec3 vP;
+      uniform vec3 uSunDir;
       float hash(vec2 p){
         p = fract(p * vec2(123.34, 345.45));
         p += dot(p, p + 34.345);
@@ -514,9 +476,8 @@ export function createPlant(scene) {
         float cover = max(cumulus, puff * 0.65);
         cover *= smoothstep(-0.05, 0.08, h);
         col = mix(col, vec3(1.0, 1.0, 1.0), cover);
-        vec3 sunDir = normalize(vec3(0.2, 0.46, -0.86));
-        float sun = pow(max(dot(dir, sunDir), 0.0), 1800.0);
-        float glow = pow(max(dot(dir, sunDir), 0.0), 18.0);
+        float sun = pow(max(dot(dir, uSunDir), 0.0), 1800.0);
+        float glow = pow(max(dot(dir, uSunDir), 0.0), 18.0);
         col += vec3(1.0, 0.97, 0.88) * sun;
         col += vec3(1.0, 0.92, 0.7) * glow * 0.08;
         gl_FragColor = vec4(col, 1.0);
@@ -525,6 +486,8 @@ export function createPlant(scene) {
   });
   const sky = new THREE.Mesh(skyGeo, skyMat);
   sky.position.y = 10;
+  sky.userData.sky = true;
+  sky.layers.enable(2);
   scene.add(sky);
 
   function hill(x, z, rx, ry, rz, rot) {
@@ -1366,6 +1329,9 @@ export function createPlant(scene) {
     fx,
     flowState,
     plaques,
+    sunDir,
+    seabed: seabed.material,
+    coast: { center: discCenter, radius: discRadius, shoreX, seaY },
     tick(dt, t, running) {
       tickers.forEach((fn) => fn(t, dt, running));
     },
