@@ -41,7 +41,7 @@ python3 -m http.server 8734
 
 ## 海水
 
-外海是 [Ultra-Water](https://github.com/8vdpxdrv4c-dot/Ultra-Water) 的 FFT 海面（`OceanSim` + `OceanSurface`），铺到天际线，从四面把厂区岛屿围住。厂区、堤岸和沙丘在岛上，近岸浪用岛屿水深图。天空仍是晴天穹顶，设备阴影和金属不变。工艺水池里的水面仍是普通材质。源码在 `vendor/ultra-water/`（模拟、海面、岸线、焦散、平面反射）。低画质会减网格、关掉平面反射和焦散。
+外海是 [Ultra-Water](https://github.com/8vdpxdrv4c-dot/Ultra-Water) 的 FFT 海面，铺到天际线，从四面把厂区岛屿围住。天空和云也是这套库的大气（白天，太阳高度约 48°）。沙地和沙丘偏深。设备、阴影和金属仍在。工艺水池里的水面仍是普通材质。源码在 `vendor/ultra-water/`。低画质会减网格、关掉平面反射和焦散。
 
 ## 海水三轮
 

@@ -113,7 +113,7 @@ function canvasTex(w, h, draw) {
 
 function concreteMap() {
   return canvasTex(512, 512, (g) => {
-    g.fillStyle = "#dfe3e8";
+    g.fillStyle = "#b4b9b4";
     g.fillRect(0, 0, 512, 512);
     for (let i = 0; i < 2400; i++) {
       const a = Math.random() * 0.05;
@@ -307,17 +307,17 @@ export function createPlant(scene) {
   const plaques = [];
 
   const sandTex = canvasTex(512, 512, (g) => {
-    g.fillStyle = "#f0c98a";
+    g.fillStyle = "#8d5a2b";
     g.fillRect(0, 0, 512, 512);
     for (let i = 0; i < 5000; i++) {
-      const a = 0.04 + Math.random() * 0.12;
-      g.fillStyle = Math.random() > 0.55 ? `rgba(176,112,48,${a})` : `rgba(255,236,196,${a})`;
+      const a = 0.08 + Math.random() * 0.16;
+      g.fillStyle = Math.random() > 0.55 ? `rgba(62,32,14,${a})` : `rgba(150,96,48,${a})`;
       g.fillRect(Math.random() * 512, Math.random() * 512, 3, 2);
     }
   });
   sandTex.wrapS = sandTex.wrapT = THREE.RepeatWrapping;
   sandTex.repeat.set(8, 8);
-  const sandMat = std(0xf6d7a4, 0.0, 0.96, { map: sandTex });
+  const sandMat = std(0xa56a38, 0.0, 0.94, { map: sandTex });
   // The plant sits on an island. Open ocean (js/ocean.js) surrounds it.
   const island = new THREE.Mesh(buildIslandGeometry(), sandMat);
   island.receiveShadow = true;
@@ -343,7 +343,7 @@ export function createPlant(scene) {
   const cmap = concreteMap();
   cmap.wrapS = cmap.wrapT = THREE.RepeatWrapping;
   cmap.repeat.set(18, 10);
-  const groundMat = std(0xf4f6f8, 0.02, 0.88, { map: cmap });
+  const groundMat = std(0xb7bdb6, 0.02, 0.9, { map: cmap });
   const ground = new THREE.Mesh(new THREE.BoxGeometry(92, 0.8, 36), groundMat);
   ground.position.set(28, -0.4, 0);
   ground.receiveShadow = true;
@@ -352,7 +352,6 @@ export function createPlant(scene) {
   addBox(root, 2.2, 3.2, 42, MAT.concreteDark, -16.2, -0.3, 0, null, true);
 
   const seaY = -0.18;
-  const sunDir = new THREE.Vector3(0.2, 0.46, -0.86).normalize();
   const stain = new THREE.Mesh(
     new THREE.PlaneGeometry(38, 0.85),
     std(0x7d8680, 0.18, 0.42)
@@ -361,70 +360,8 @@ export function createPlant(scene) {
   stain.position.set(-17.34, seaY + 0.42, 0);
   root.add(stain);
 
-  const skyGeo = new THREE.SphereGeometry(900, 48, 32);
-  const skyMat = new THREE.ShaderMaterial({
-    side: THREE.BackSide,
-    depthWrite: false,
-    uniforms: { uSunDir: { value: sunDir } },
-    vertexShader: `varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
-    fragmentShader: `
-      varying vec3 vP;
-      uniform vec3 uSunDir;
-      float hash(vec2 p){
-        p = fract(p * vec2(123.34, 345.45));
-        p += dot(p, p + 34.345);
-        return fract(p.x * p.y);
-      }
-      float noise(vec2 p){
-        vec2 i = floor(p);
-        vec2 f = fract(p);
-        f = f * f * (3.0 - 2.0 * f);
-        float a = hash(i);
-        float b = hash(i + vec2(1.0, 0.0));
-        float c = hash(i + vec2(0.0, 1.0));
-        float d = hash(i + vec2(1.0, 1.0));
-        return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
-      }
-      float fbm(vec2 p){
-        float v = 0.0;
-        float a = 0.55;
-        for (int i = 0; i < 5; i++) {
-          v += a * noise(p);
-          p = p * 2.03 + vec2(1.7, 9.2);
-          a *= 0.5;
-        }
-        return v;
-      }
-      void main() {
-        vec3 dir = normalize(vP);
-        float h = dir.y;
-        vec3 zen = vec3(0.05, 0.32, 0.92);
-        vec3 mid = vec3(0.16, 0.48, 0.96);
-        vec3 hor = vec3(0.45, 0.72, 0.98);
-        vec3 col = mix(hor, mid, smoothstep(0.0, 0.18, h));
-        col = mix(col, zen, smoothstep(0.08, 0.5, h));
-        vec2 cuv = dir.xz * 2.6;
-        float cumulus = smoothstep(0.62, 0.78, fbm(cuv + vec2(2.0, 0.6)));
-        float puff = smoothstep(0.7, 0.86, fbm(cuv * 1.7 + 8.0));
-        float cover = max(cumulus, puff * 0.65);
-        cover *= smoothstep(-0.05, 0.08, h);
-        col = mix(col, vec3(1.0, 1.0, 1.0), cover);
-        float sun = pow(max(dot(dir, uSunDir), 0.0), 1800.0);
-        float glow = pow(max(dot(dir, uSunDir), 0.0), 18.0);
-        col += vec3(1.0, 0.97, 0.88) * sun;
-        col += vec3(1.0, 0.92, 0.7) * glow * 0.08;
-        gl_FragColor = vec4(col, 1.0);
-      }
-    `,
-  });
-  const sky = new THREE.Mesh(skyGeo, skyMat);
-  sky.position.y = 10;
-  sky.userData.sky = true;
-  sky.layers.enable(2);
-  scene.add(sky);
-
   function hill(x, z, rx, ry, rz, rot) {
-    const m = new THREE.Mesh(new THREE.SphereGeometry(1, 18, 12), std(0xe8c98a, 0.0, 0.96));
+    const m = new THREE.Mesh(new THREE.SphereGeometry(1, 18, 12), std(0x8a5e32, 0.0, 0.94));
     m.scale.set(rx, ry, rz);
     m.position.set(x, ry * 0.15, z);
     m.rotation.y = rot || 0;
@@ -1262,7 +1199,6 @@ export function createPlant(scene) {
     fx,
     flowState,
     plaques,
-    sunDir,
     seabed: null,
     coast: { seaY, heightAt: islandHeightAt },
     tick(dt, t, running) {

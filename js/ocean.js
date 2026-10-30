@@ -6,9 +6,9 @@ import { bakeShoreMap } from "../vendor/ultra-water/water/shoreMap.js";
 import { bakeWaterTextures } from "../vendor/ultra-water/water/bakeTextures.js";
 import { WaveCaustics } from "../vendor/ultra-water/water/Caustics.js";
 import { PlanarReflection } from "../vendor/ultra-water/engine/PlanarReflection.js";
+import { SkySystem } from "../vendor/ultra-water/scene/sky.js";
 
 const REFLECT_LAYER = 1;
-const SKY_LAYER = 2;
 
 const PROFILES = {
   low: { angular: 112, reflect: false, reflectScale: 0.32, glint: 0, caustics: false },
@@ -46,7 +46,12 @@ class WaterPass extends Pass {
   }
 }
 
-export function createCoastalOcean({ renderer, scene, camera, coast, seabed, sunDir }) {
+export function createCoastalOcean({ renderer, scene, camera, coast, seabed }) {
+  const sky = new SkySystem(renderer);
+  sky.update();
+  sky.background.userData.sky = true;
+  scene.add(sky.background);
+
   const shore = bakeShoreMap((x, z) => coast.heightAt(x, z), 560, 384);
   const params = defaultOceanParams();
   Object.assign(params, {
@@ -72,31 +77,11 @@ export function createCoastalOcean({ renderer, scene, camera, coast, seabed, sun
   const caustics = seabed ? new WaveCaustics(renderer, sim) : null;
   const foam = bakeWaterTextures(renderer);
 
-  const cubeRT = new THREE.WebGLCubeRenderTarget(256, {
-    type: THREE.HalfFloatType,
-    generateMipmaps: true,
-    minFilter: THREE.LinearMipmapLinearFilter,
-    magFilter: THREE.LinearFilter,
-    depthBuffer: false,
-  });
-  let sky = null;
-  scene.traverse((obj) => {
-    if (obj.userData && obj.userData.sky) sky = obj;
-  });
-  if (sky) sky.layers.enable(SKY_LAYER);
-  const cubeCam = new THREE.CubeCamera(1, 1400, cubeRT);
-  cubeCam.layers.set(SKY_LAYER);
-  cubeCam.position.set(30, 18, 4);
-  const prevBg = scene.background;
-  scene.background = null;
-  cubeCam.update(renderer, scene);
-  scene.background = prevBg;
-
   const skyLite = {
-    cube: cubeRT.texture,
-    cubeSize: 256,
-    sunDir: sunDir.clone().normalize(),
-    sunColor: new THREE.Vector3(2.5, 2.25, 1.9),
+    cube: sky.cube,
+    cubeSize: sky.cubeSize,
+    sunDir: sky.sunDir,
+    sunColor: sky.sunColor,
   };
 
   const surface = new OceanSurface(sim, shore, skyLite, {
@@ -108,7 +93,7 @@ export function createCoastalOcean({ renderer, scene, camera, coast, seabed, sun
   surface.uniforms.uWaveDamp.value.set(14, 0.8);
   surface.uniforms.uScatterColor.value.set(0.02, 0.08, 0.1);
   surface.uniforms.uFoam.value.set(0.28, 2.4, 0.9, 1);
-  surface.uniforms.uOptics.value.set(0.02, 0.055, 0.04, 1 / 520);
+  surface.uniforms.uOptics.value.set(0.02, 0.05, 0.04, 1 / 2800);
   surface.uniforms.uGlint.value = PROFILES.mid.glint;
   surface.uniforms.uCamSide.value = -1;
 
@@ -157,6 +142,7 @@ export function createCoastalOcean({ renderer, scene, camera, coast, seabed, sun
     renderer,
     scene,
     camera,
+    sunDir: sky.sunDir,
     sim,
     caustics,
     surface,

@@ -87,8 +87,8 @@ const ocean = createCoastalOcean({
   camera,
   coast: plant.coast,
   seabed: plant.seabed,
-  sunDir: plant.sunDir,
 });
+key.position.copy(key.target.position).addScaledVector(ocean.sunDir, 140);
 const selectRing = new THREE.Mesh(
   new THREE.TorusGeometry(1.15, 0.045, 8, 48),
   new THREE.MeshBasicMaterial({ color: 0x7ee7ff, transparent: true, opacity: 0.85 })
