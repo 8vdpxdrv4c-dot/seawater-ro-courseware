@@ -89,10 +89,10 @@ export function createCoastalOcean({ renderer, scene, camera, coast, seabed }) {
     seaLevel: coast.seaY,
   });
   surface.uniforms.uFoamTex.value = foam.foam;
-  surface.uniforms.uShoreWave.value.set(0.62, 28, 1.05, 1);
+  surface.uniforms.uShoreWave.value.set(0.28, 34, 0.85, 0.55);
   surface.uniforms.uWaveDamp.value.set(14, 0.8);
   surface.uniforms.uScatterColor.value.set(0.02, 0.08, 0.1);
-  surface.uniforms.uFoam.value.set(0.28, 2.4, 0.9, 1);
+  surface.uniforms.uFoam.value.set(0.08, 1.4, 1.4, 0.95);
   surface.uniforms.uOptics.value.set(0.02, 0.05, 0.04, 1 / 2800);
   surface.uniforms.uGlint.value = PROFILES.mid.glint;
   surface.uniforms.uCamSide.value = -1;

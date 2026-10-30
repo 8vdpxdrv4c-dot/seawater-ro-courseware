@@ -334,9 +334,53 @@ function buildTimeline() {
   });
 }
 
+const labelRay = new THREE.Raycaster();
+const labelDir = new THREE.Vector3();
+
+function labelBox(item) {
+  const w = item.w;
+  const h = item.h;
+  return { l: item.x - w / 2, t: item.y - h * 1.2, r: item.x + w / 2, b: item.y - h * 0.2 };
+}
+
+function labelOverlap(a, b) {
+  const A = labelBox(a);
+  const B = labelBox(b);
+  const iw = Math.min(A.r, B.r) - Math.max(A.l, B.l);
+  const ih = Math.min(A.b, B.b) - Math.max(A.t, B.t);
+  if (iw <= 0 || ih <= 0) return 0;
+  return (iw * ih) / Math.max(Math.min(a.w * a.h, b.w * b.h), 1);
+}
+
+function labelOccluded(id, anchor) {
+  labelDir.copy(anchor).sub(camera.position);
+  const dist = labelDir.length();
+  if (dist < 0.8) return false;
+  labelDir.multiplyScalar(1 / dist);
+  labelRay.set(camera.position, labelDir);
+  labelRay.far = dist - 0.45;
+  const hits = labelRay.intersectObject(plant.root, true);
+  for (const hit of hits) {
+    const mat = hit.object.material;
+    if (mat && mat.transparent && (mat.opacity ?? 1) < 0.92) continue;
+    let own = false;
+    let node = hit.object;
+    while (node) {
+      if (node.userData && node.userData.id === id) {
+        own = true;
+        break;
+      }
+      node = node.parent;
+    }
+    if (!own) return true;
+  }
+  return false;
+}
+
 function placeLabels() {
   const w = window.innerWidth;
   const h = window.innerHeight;
+  const items = [];
   ORDER.forEach((id) => {
     const u = plant.units[id];
     labelAnchor.copy(u.label);
@@ -344,10 +388,33 @@ function placeLabels() {
     const x = (labelAnchor.x * 0.5 + 0.5) * w;
     const y = (-labelAnchor.y * 0.5 + 0.5) * h;
     const behind = labelAnchor.z > 1;
+    const off = x < -80 || x > w + 80 || y < -80 || y > h + 80;
     u.el.style.transform = `translate(-50%, -120%) translate(${x}px, ${y}px)`;
-    u.el.classList.toggle("hide", !showLabels || behind || x < -80 || x > w + 80 || y < -80 || y > h + 80);
     u.el.classList.toggle("quiet", !!current && current !== id);
+    if (!showLabels || behind || off) {
+      u.el.classList.add("hide");
+      return;
+    }
+    const keep = id === current || u.el.matches(":hover");
+    items.push({
+      id,
+      u,
+      x,
+      y,
+      w: u.el.offsetWidth || 168,
+      h: u.el.offsetHeight || 44,
+      dist: camera.position.distanceTo(u.anchor),
+      keep,
+    });
   });
+  items.sort((a, b) => (a.keep === b.keep ? a.dist - b.dist : a.keep ? -1 : 1));
+  const kept = [];
+  for (const item of items) {
+    const crowded = !item.keep && kept.some((other) => labelOverlap(item, other) > 0.22);
+    const blocked = !item.keep && labelOccluded(item.id, item.u.anchor);
+    item.u.el.classList.toggle("hide", crowded || blocked);
+    if (!crowded && !blocked) kept.push(item);
+  }
 }
 
 function updateDof(dt) {
