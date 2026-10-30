@@ -1,12 +1,12 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
-import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { BokehPass } from "three/addons/postprocessing/BokehPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { createPlant } from "./plant.js";
+import { createCoastalOcean } from "./ocean.js";
 import { CONTENT, STAGES, ORDER } from "./content.js";
 
 const $ = (id) => document.getElementById(id);
@@ -81,6 +81,14 @@ scene.add(warm);
 const baseLight = { hemi: hemi.intensity, key: key.intensity, rim: rim.intensity, warm: warm.intensity, env: scene.environmentIntensity };
 
 const plant = createPlant(scene);
+const ocean = createCoastalOcean({
+  renderer,
+  scene,
+  camera,
+  coast: plant.coast,
+  seabed: plant.seabed,
+  sunDir: plant.sunDir,
+});
 const selectRing = new THREE.Mesh(
   new THREE.TorusGeometry(1.15, 0.045, 8, 48),
   new THREE.MeshBasicMaterial({ color: 0x7ee7ff, transparent: true, opacity: 0.85 })
@@ -105,9 +113,10 @@ controls.mouseButtons = {
 controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
 
 const composer = new EffectComposer(renderer);
-composer.addPass(new RenderPass(scene, camera));
+composer.addPass(ocean.opaquePass);
 const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), settings.bloomS, settings.bloomR, settings.bloomT);
 composer.addPass(bloom);
+composer.addPass(ocean.waterPass);
 const bokeh = new BokehPass(scene, camera, { focus: 20, aperture: 0, maxblur: 0 });
 bokeh.enabled = false;
 composer.addPass(bokeh);
@@ -160,6 +169,7 @@ function applyQuality(level) {
   if (spec.shadow) key.shadow.mapSize.set(spec.shadow, spec.shadow);
   renderer.shadowMap.enabled = spec.shadow > 0;
   plant.flowState.particleScale = spec.particles;
+  ocean.setQuality(settings.quality, true);
   document.querySelectorAll("#qseg button").forEach((b) => b.classList.toggle("on", b.dataset.q === settings.quality));
   resize();
 }
@@ -729,6 +739,7 @@ function frame() {
     if (cell) cell.textContent = `约 5–8 MPa · 示意 ${plant.readout.mpa.toFixed(1)}`;
   }
   $("timer").textContent = `${running ? "运行中" : "已停止"} ${fmt(runTime)}`;
+  ocean.update(dt, t, camera);
   composer.render();
   if (settings.fps) {
     const fps = dt > 0 ? 1 / dt : 0;
@@ -770,6 +781,8 @@ async function main() {
     camera.updateProjectionMatrix();
   }
   plant.tick(0.016, 0, true);
+  ocean.update(0.016, 0.016, camera);
+  composer.render();
   bootOut();
   clock.getDelta();
   requestAnimationFrame(frame);
