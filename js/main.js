@@ -43,11 +43,11 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = settings.exposure;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.setClearColor(0x8ec4ef, 1);
+renderer.setClearColor(0x10202e, 1);
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x8ec4ef);
-scene.fog = new THREE.Fog(0xc5ddf6, 380, 820);
+scene.background = null;
+scene.fog = null;
 
 const camera = new THREE.PerspectiveCamera(ESTABLISH.fov, 1, 0.25, 1200);
 camera.position.set(...ESTABLISH.pos);
@@ -56,7 +56,7 @@ const pmrem = new THREE.PMREMGenerator(renderer);
 scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.05).texture;
 scene.environmentIntensity = 0.72;
 
-const hemi = new THREE.HemisphereLight(0x7eb6ef, 0xe4c48e, 0.52);
+const hemi = new THREE.HemisphereLight(0x6e8eae, 0x3a2818, 0.38);
 scene.add(hemi);
 const key = new THREE.DirectionalLight(0xfff2d6, 2.25);
 key.position.set(58, 34, 16);

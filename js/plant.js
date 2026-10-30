@@ -113,7 +113,7 @@ function canvasTex(w, h, draw) {
 
 function concreteMap() {
   return canvasTex(512, 512, (g) => {
-    g.fillStyle = "#b4b9b4";
+    g.fillStyle = "#6e736e";
     g.fillRect(0, 0, 512, 512);
     for (let i = 0; i < 2400; i++) {
       const a = Math.random() * 0.05;
@@ -307,17 +307,17 @@ export function createPlant(scene) {
   const plaques = [];
 
   const sandTex = canvasTex(512, 512, (g) => {
-    g.fillStyle = "#8d5a2b";
+    g.fillStyle = "#3f2916";
     g.fillRect(0, 0, 512, 512);
     for (let i = 0; i < 5000; i++) {
-      const a = 0.08 + Math.random() * 0.16;
-      g.fillStyle = Math.random() > 0.55 ? `rgba(62,32,14,${a})` : `rgba(150,96,48,${a})`;
+      const a = 0.1 + Math.random() * 0.2;
+      g.fillStyle = Math.random() > 0.5 ? `rgba(22,12,6,${a})` : `rgba(92,58,30,${a})`;
       g.fillRect(Math.random() * 512, Math.random() * 512, 3, 2);
     }
   });
   sandTex.wrapS = sandTex.wrapT = THREE.RepeatWrapping;
   sandTex.repeat.set(8, 8);
-  const sandMat = std(0xa56a38, 0.0, 0.94, { map: sandTex });
+  const sandMat = std(0x6a4328, 0.0, 0.96, { map: sandTex });
   // The plant sits on an island. Open ocean (js/ocean.js) surrounds it.
   const island = new THREE.Mesh(buildIslandGeometry(), sandMat);
   island.receiveShadow = true;
@@ -343,13 +343,13 @@ export function createPlant(scene) {
   const cmap = concreteMap();
   cmap.wrapS = cmap.wrapT = THREE.RepeatWrapping;
   cmap.repeat.set(18, 10);
-  const groundMat = std(0xb7bdb6, 0.02, 0.9, { map: cmap });
+  const groundMat = std(0x6a6f6a, 0.02, 0.92, { map: cmap });
   const ground = new THREE.Mesh(new THREE.BoxGeometry(92, 0.8, 36), groundMat);
   ground.position.set(28, -0.4, 0);
   ground.receiveShadow = true;
   root.add(ground);
 
-  addBox(root, 2.2, 3.2, 42, MAT.concreteDark, -16.2, -0.3, 0, null, true);
+  addBox(root, 2.2, 3.2, 42, std(0x5e6360, 0.04, 0.9), -16.2, -0.3, 0, null, true);
 
   const seaY = -0.18;
   const stain = new THREE.Mesh(
@@ -361,7 +361,7 @@ export function createPlant(scene) {
   root.add(stain);
 
   function hill(x, z, rx, ry, rz, rot) {
-    const m = new THREE.Mesh(new THREE.SphereGeometry(1, 18, 12), std(0x8a5e32, 0.0, 0.94));
+    const m = new THREE.Mesh(new THREE.SphereGeometry(1, 18, 12), std(0x4a3018, 0.0, 0.96));
     m.scale.set(rx, ry, rz);
     m.position.set(x, ry * 0.15, z);
     m.rotation.y = rot || 0;
