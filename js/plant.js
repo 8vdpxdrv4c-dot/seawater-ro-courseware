@@ -111,33 +111,67 @@ function canvasTex(w, h, draw) {
   return t;
 }
 
-function concreteMap() {
+function brickMap() {
   return canvasTex(512, 512, (g) => {
-    g.fillStyle = "#6e736e";
+    g.fillStyle = "#2c3238";
     g.fillRect(0, 0, 512, 512);
-    for (let i = 0; i < 2400; i++) {
-      const a = Math.random() * 0.05;
-      g.fillStyle = Math.random() > 0.5 ? `rgba(130,140,150,${a})` : `rgba(255,255,255,${a})`;
-      g.fillRect(Math.random() * 512, Math.random() * 512, 2, 2);
-    }
-    g.strokeStyle = "rgba(150, 158, 166, 0.45)";
-    g.lineWidth = 4;
-    for (let i = 0; i <= 512; i += 128) {
-      g.beginPath();
-      g.moveTo(i, 0);
-      g.lineTo(i, 512);
-      g.stroke();
-      g.beginPath();
-      g.moveTo(0, i);
-      g.lineTo(512, i);
-      g.stroke();
-    }
-    for (let i = 0; i < 1800; i++) {
-      const a = Math.random() * 0.06;
-      g.fillStyle = `rgba(255,255,255,${a})`;
-      g.fillRect(Math.random() * 512, Math.random() * 512, 2, 2);
+    const bw = 62;
+    const bh = 30;
+    const gap = 5;
+    const cols = Math.ceil(512 / (bw + gap)) + 2;
+    const rows = Math.ceil(512 / (bh + gap)) + 2;
+    for (let row = 0; row < rows; row++) {
+      const off = (row % 2) * ((bw + gap) * 0.5);
+      for (let col = -1; col < cols; col++) {
+        const x = Math.round(col * (bw + gap) + off);
+        const y = row * (bh + gap);
+        const n = ((row * 13 + col * 7) % 9) / 9;
+        const tone = Math.round(118 + n * 52);
+        g.fillStyle = `rgb(${tone - 8},${tone - 2},${tone + 4})`;
+        g.fillRect(x, y, bw, bh);
+        g.fillStyle = `rgba(255,255,255,${0.05 + n * 0.06})`;
+        g.fillRect(x + 2, y + 2, bw * 0.45, 2);
+        g.fillStyle = "rgba(20,24,28,0.18)";
+        g.fillRect(x, y + bh - 3, bw, 3);
+        g.fillStyle = `rgba(30,34,38,${0.05 + n * 0.08})`;
+        g.fillRect(x + 8 + (n * 20), y + 8, 2, 2);
+      }
     }
   });
+}
+
+function beachMap() {
+  return canvasTex(512, 512, (g) => {
+    g.fillStyle = "#e6d0a4";
+    g.fillRect(0, 0, 512, 512);
+    for (let i = 0; i < 28; i++) {
+      const x = Math.random() * 512;
+      const y = Math.random() * 512;
+      const r = 30 + Math.random() * 70;
+      g.fillStyle = Math.random() > 0.5 ? "rgba(196,154,96,0.16)" : "rgba(255,236,196,0.14)";
+      g.beginPath();
+      g.ellipse(x, y, r, r * 0.55, Math.random() * 3, 0, Math.PI * 2);
+      g.fill();
+    }
+    for (let i = 0; i < 14000; i++) {
+      const roll = Math.random();
+      const a = 0.15 + Math.random() * 0.45;
+      if (roll > 0.92) g.fillStyle = `rgba(120,86,48,${a})`;
+      else if (roll > 0.55) g.fillStyle = `rgba(168,124,72,${a * 0.7})`;
+      else g.fillStyle = `rgba(255,244,214,${a * 0.55})`;
+      const s = roll > 0.97 ? 3 : 1 + (roll > 0.8 ? 1 : 0);
+      g.fillRect(Math.random() * 512, Math.random() * 512, s, s);
+    }
+  });
+}
+
+function pavedDeck(w, d) {
+  const geo = new THREE.PlaneGeometry(w, d);
+  const pos = geo.attributes.position;
+  const uv = geo.attributes.uv;
+  for (let i = 0; i < pos.count; i++) uv.setXY(i, pos.getX(i) * 0.16, pos.getY(i) * 0.16);
+  geo.rotateX(-Math.PI / 2);
+  return geo;
 }
 
 function softCircle() {
@@ -262,6 +296,7 @@ function buildIslandGeometry() {
   const stride = nx + 1;
   const positions = [];
   const uvs = [];
+  const wet = [];
   const valid = [];
   for (let j = 0; j <= nz; j++) {
     for (let i = 0; i <= nx; i++) {
@@ -275,7 +310,8 @@ function buildIslandGeometry() {
         : -0.22 + Math.min(1, -sdf / 12) * 0.2;
       valid.push(on);
       positions.push(x, y, z);
-      uvs.push(x * 0.04, z * 0.04);
+      uvs.push(x * 0.22, z * 0.22);
+      wet.push(Math.min(1, Math.max(0, (sdf + 16) / 15)));
     }
   }
   const index = [];
@@ -292,6 +328,7 @@ function buildIslandGeometry() {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
   geo.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+  geo.setAttribute("wetness", new THREE.Float32BufferAttribute(wet, 1));
   geo.setIndex(index);
   geo.computeVertexNormals();
   return geo;
@@ -306,25 +343,34 @@ export function createPlant(scene) {
   const flows = [];
   const plaques = [];
 
-  const sandTex = canvasTex(512, 512, (g) => {
-    g.fillStyle = "#3f2916";
-    g.fillRect(0, 0, 512, 512);
-    for (let i = 0; i < 5000; i++) {
-      const a = 0.1 + Math.random() * 0.2;
-      g.fillStyle = Math.random() > 0.5 ? `rgba(22,12,6,${a})` : `rgba(92,58,30,${a})`;
-      g.fillRect(Math.random() * 512, Math.random() * 512, 3, 2);
-    }
-  });
+  const sandTex = beachMap();
   sandTex.wrapS = sandTex.wrapT = THREE.RepeatWrapping;
-  sandTex.repeat.set(8, 8);
-  const sandMat = std(0x6a4328, 0.0, 0.96, { map: sandTex });
+  const sandMat = new THREE.MeshStandardMaterial({
+    color: 0xf3e6c8,
+    map: sandTex,
+    metalness: 0.02,
+    roughness: 0.94,
+  });
+  sandMat.onBeforeCompile = (shader) => {
+    shader.vertexShader = shader.vertexShader
+      .replace("#include <common>", "#include <common>\nattribute float wetness;\nvarying float vWet;")
+      .replace("#include <begin_vertex>", "#include <begin_vertex>\nvWet = wetness;");
+    shader.fragmentShader = shader.fragmentShader
+      .replace("#include <common>", "#include <common>\nvarying float vWet;")
+      .replace("#include <color_fragment>", "#include <color_fragment>\ndiffuseColor.rgb *= mix(vec3(1.0), vec3(0.55, 0.5, 0.42), clamp(vWet, 0.0, 1.0));")
+      .replace("#include <roughnessmap_fragment>", "float roughnessFactor = mix(0.96, 0.22, clamp(vWet, 0.0, 1.0));");
+  };
   // The plant sits on an island. Open ocean (js/ocean.js) surrounds it.
   const island = new THREE.Mesh(buildIslandGeometry(), sandMat);
   island.receiveShadow = true;
   island.castShadow = false;
   root.add(island);
+  const duneTex = sandTex.clone();
+  duneTex.repeat.set(5, 5);
+  const duneMat = sandMat.clone();
+  duneMat.map = duneTex;
   function dune(x, z, rx, ry, rz, rot) {
-    const m = new THREE.Mesh(new THREE.SphereGeometry(1, 28, 16), sandMat);
+    const m = new THREE.Mesh(new THREE.SphereGeometry(1, 28, 16), duneMat);
     m.scale.set(rx, ry, rz);
     m.position.set(x, ry * 0.22, z);
     m.rotation.y = rot || 0;
@@ -340,16 +386,23 @@ export function createPlant(scene) {
   dune(78, 14, 14, 2.6, 8, 0.2);
   dune(-8, 22, 14, 1.9, 6, 0.2);
 
-  const cmap = concreteMap();
-  cmap.wrapS = cmap.wrapT = THREE.RepeatWrapping;
-  cmap.repeat.set(18, 10);
-  const groundMat = std(0x6a6f6a, 0.02, 0.92, { map: cmap });
-  const ground = new THREE.Mesh(new THREE.BoxGeometry(92, 0.8, 36), groundMat);
-  ground.position.set(28, -0.4, 0);
-  ground.receiveShadow = true;
-  root.add(ground);
+  const bricks = brickMap();
+  bricks.wrapS = bricks.wrapT = THREE.RepeatWrapping;
+  const brickMat = std(0xc5ccd2, 0.08, 0.78, { map: bricks });
+  const yardBase = new THREE.Mesh(new THREE.BoxGeometry(92, 0.76, 36), std(0x5c6368, 0.06, 0.88));
+  yardBase.position.set(28, -0.42, 0);
+  yardBase.receiveShadow = true;
+  root.add(yardBase);
+  const yard = new THREE.Mesh(pavedDeck(92, 36), brickMat);
+  yard.position.set(28, 0.012, 0);
+  yard.receiveShadow = true;
+  root.add(yard);
 
-  addBox(root, 2.2, 3.2, 42, std(0x5e6360, 0.04, 0.9), -16.2, -0.3, 0, null, true);
+  addBox(root, 2.2, 3.2, 42, std(0x5c6368, 0.06, 0.88), -16.2, -0.3, 0, null, true);
+  const quayDeck = new THREE.Mesh(pavedDeck(2.05, 41.2), brickMat);
+  quayDeck.position.set(-16.2, 1.34, 0);
+  quayDeck.receiveShadow = true;
+  root.add(quayDeck);
 
   const seaY = -0.18;
   const stain = new THREE.Mesh(
@@ -361,7 +414,7 @@ export function createPlant(scene) {
   root.add(stain);
 
   function hill(x, z, rx, ry, rz, rot) {
-    const m = new THREE.Mesh(new THREE.SphereGeometry(1, 18, 12), std(0x4a3018, 0.0, 0.96));
+    const m = new THREE.Mesh(new THREE.SphereGeometry(1, 18, 12), duneMat);
     m.scale.set(rx, ry, rz);
     m.position.set(x, ry * 0.15, z);
     m.rotation.y = rot || 0;
