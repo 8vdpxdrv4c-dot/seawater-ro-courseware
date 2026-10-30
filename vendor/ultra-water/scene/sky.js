@@ -22,7 +22,8 @@ out vec3 vDir;
 void main() {
   vDir = position;
   vec4 p = projectionMatrix * mat4(mat3(viewMatrix)) * vec4(position, 1.0);
-  gl_Position = p.xyww; // far plane
+  gl_Position = p.xyww;
+  gl_Position.z *= 0.9995;
 }`;
 
 const BG_FRAG = /* glsl */`
@@ -132,7 +133,7 @@ export class SkySystem {
     this.sunDir = new THREE.Vector3(0, 1, 0);
     this.sunColor = new THREE.Vector3(1, 1, 1);
     // Daytime, same model as the demo (Lagoon is 52°). Not the golden-hour preset.
-    this.params = { elevation: 48, azimuth: 205, turbidity: 2, rayleigh: 1, cloudCoverage: 0.42, sunIntensity: 8 };
+    this.params = { elevation: 46, azimuth: 205, turbidity: 2, rayleigh: 1, cloudCoverage: 0.55, sunIntensity: 2.4 };
 
     this.atmosphere = new Atmosphere();
     this.cubeRT = new THREE.WebGLCubeRenderTarget(CUBE_SIZE, {
@@ -152,12 +153,13 @@ export class SkySystem {
       new THREE.ShaderMaterial({
         glslVersion: THREE.GLSL3, vertexShader: BG_VERT, fragmentShader: BG_FRAG,
         uniforms: { uCube: { value: this.cube }, uSunDir: { value: this.sunDir }, uSunColor: { value: this.sunColor } },
-        side: THREE.BackSide, depthWrite: false,
+        side: THREE.BackSide, depthWrite: false, depthTest: false, fog: false,
       }),
     );
     this.background.frustumCulled = false;
-    // drawn after the opaque scene at the far plane, so only visible sky pixels shade
-    this.background.renderOrder = 1000;
+    // First in the opaque pass, no depth test, so the atmosphere always fills
+    // the frame. The plant and the ocean draw over it.
+    this.background.renderOrder = -1;
   }
 
   update() {

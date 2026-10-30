@@ -124,7 +124,7 @@ export function createCoastalOcean({ renderer, scene, camera, coast, seabed }) {
   renderer.setClearColor(0x000000, 0);
   renderer.clear(true, false, false);
   renderer.setRenderTarget(saved);
-  renderer.setClearColor(0x8ec4ef, 1);
+  renderer.setClearColor(0x10202e, 1);
 
   const waterScene = new THREE.Scene();
   waterScene.add(surface.mesh);
