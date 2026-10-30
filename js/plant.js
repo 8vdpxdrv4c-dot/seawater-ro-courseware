@@ -282,7 +282,11 @@ function islandSdf(x, z) {
   const north = ellipse(34, -40, 68, 32);
   const south = ellipse(34, 30, 50, 22);
   const west = ellipse(6, 6, 30, 24);
-  return smin(smin(smin(yard, north, 26), south, 22), west, 18);
+  const island = smin(smin(smin(yard, north, 26), south, 22), west, 18);
+  // Southeast plain: the freshwater outlet runs onto this mainland.
+  // North and west stay open sea, so the panorama is about half land, half ocean.
+  const mainland = ellipse(100, 88, 80, 60);
+  return smin(island, mainland, 40);
 }
 
 function islandHeightAt(x, z) {
@@ -292,12 +296,12 @@ function islandHeightAt(x, z) {
 }
 
 function buildIslandGeometry() {
-  const x0 = -50;
-  const x1 = 130;
-  const z0 = -100;
-  const z1 = 74;
-  const nx = 110;
-  const nz = 100;
+  const x0 = -80;
+  const x1 = 230;
+  const z0 = -140;
+  const z1 = 190;
+  const nx = 155;
+  const nz = 165;
   const stride = nx + 1;
   const positions = [];
   const uvs = [];
@@ -366,7 +370,7 @@ export function createPlant(scene) {
       .replace("#include <color_fragment>", "#include <color_fragment>\ndiffuseColor.rgb *= mix(vec3(1.0), vec3(0.82, 0.68, 0.46), clamp(vWet, 0.0, 1.0));")
       .replace("#include <roughnessmap_fragment>", "float roughnessFactor = mix(0.92, 0.16, clamp(vWet, 0.0, 1.0));");
   };
-  // The plant sits on an island. Open ocean (js/ocean.js) surrounds it.
+  // Plant on the seaward edge of a southeast mainland. Open ocean fills the north and west.
   const island = new THREE.Mesh(buildIslandGeometry(), sandMat);
   island.receiveShadow = true;
   island.castShadow = false;
@@ -391,6 +395,11 @@ export function createPlant(scene) {
   dune(86, 16, 12, 2.2, 6, 0.4);
   dune(78, 8, 12, 2.2, 6, 0.2);
   dune(-8, 22, 14, 1.9, 6, 0.2);
+  dune(24, 72, 16, 1.5, 8, 0.25);
+  dune(112, 52, 14, 1.6, 8, -0.2);
+  dune(128, 96, 18, 1.4, 10, 0.35);
+  dune(46, 118, 14, 1.3, 8, 0.15);
+  dune(108, 128, 16, 1.2, 9, 0.4);
 
   const bricks = brickMap();
   bricks.wrapS = bricks.wrapT = THREE.RepeatWrapping;
@@ -1055,11 +1064,17 @@ export function createPlant(scene) {
   productSheet(60.8, 11, 2.6, 14, 0.08);
   productSheet(63.4, 23, 4.2, 14, 0.05);
   productSheet(66.5, 35, 6.2, 14, 0.03);
+  productSheet(64, 49, 8.6, 16, 0.026);
   const pool = new THREE.Mesh(new THREE.CircleGeometry(5.2, 32), productMat);
   pool.rotation.x = -Math.PI / 2;
   pool.position.set(68, 0.02, 44);
   pool.renderOrder = 3;
   root.add(pool);
+  const inlandPool = new THREE.Mesh(new THREE.CircleGeometry(7.5, 36), productMat);
+  inlandPool.rotation.x = -Math.PI / 2;
+  inlandPool.position.set(62, 0.02, 56);
+  inlandPool.renderOrder = 3;
+  root.add(inlandPool);
   addBox(root, 1.8, 0.35, 1.2, std(0xd8e2e8, 0.2, 0.45), 61.2, 0.22, 12.4, null, false);
 
   // ---------- pipes ----------
