@@ -1,15 +1,15 @@
 import * as THREE from 'three';
 import { N } from './OceanSim.js';
 
-// Vendored from Ultra-Water (MIT). Adapted for the courseware coast:
-// sea level offset, disc/shore clip, no floater shadow map, shorter grid.
+// Vendored from Ultra-Water (MIT). Adapted for the courseware:
+// sea level offset, island mask, no floater shadow map.
 // Camera-centred polar grid. Ring radii grow geometrically so cells stay square and
 // screen density stays ~constant. Displacement is band-limited to the local vertex
 // spacing (textureLod), which is what kills swimming - no clipmap snapping needed.
 const HIGH_CAMERA = 70;  // m: above this a half-density grid is used (waves there are sub-pixel)
 const INNER = 1;        // m, scaled by camera height
-const OUTER = 520;      // m, enough to cover the coastal disc from the courseware cameras
-const SKIRT = 900;
+const OUTER = 2800;     // m, past the sky dome so the mesh meets the horizon
+const SKIRT = 8000;
 
 function buildGrid(angular) {
   const ANGULAR = angular;
@@ -271,9 +271,6 @@ void main() {
 
 const FRAG = WATER_GLSL + /* glsl */`
 uniform vec2 uResolution;
-uniform vec2 uDiscCenter;
-uniform float uDiscRadius;
-uniform float uShoreLine;
 uniform vec2 uNearFar;
 uniform sampler2D uSceneColor;
 uniform sampler2D uSceneDepth;
@@ -323,9 +320,8 @@ vec3 skyLod(vec3 dir, float lod) {
 void main() {
   // folded crests flip triangles; drop faces that can't face the camera's side
   if (gl_FrontFacing ? uCamSide > 0.5 : uCamSide < -0.5) discard;
-  // Coastal disc: sea side only, so the plant yard stays dry.
-  vec2 rel = vXZ - uDiscCenter;
-  if (dot(rel, rel) > uDiscRadius * uDiscRadius || vXZ.x > uShoreLine) discard;
+  // sdf < 0 is the island. Keep a wet fringe so breakers can reach the beach.
+  if (shoreSample(vXZ).y < -0.55) discard;
   vec2 uv = gl_FragCoord.xy / uResolution;
   // Manual occlusion against the opaque pass (the water is drawn after bloom).
   if (texture(uSceneDepth, uv).r < gl_FragCoord.z - 0.00015) discard;
@@ -588,9 +584,6 @@ export class OceanSurface {
       uGridScale: { value: 1 },
       uCellStep: { value: (2 * Math.PI) / (options.angular || 168) },
       uSeaLevel: { value: options.seaLevel ?? 0 },
-      uDiscCenter: { value: options.discCenter ?? new THREE.Vector2(0, 0) },
-      uDiscRadius: { value: options.discRadius ?? 1e6 },
-      uShoreLine: { value: options.shoreLine ?? 1e6 },
       uResolution: { value: new THREE.Vector2(1, 1) },
       uNearFar: { value: new THREE.Vector2(0.5, 80000) },
       uSceneColor: { value: null },
@@ -650,9 +643,7 @@ export class OceanSurface {
     const a = THREE.MathUtils.degToRad(s.params.swellDirection);
     u.uSwellDir.value.set(-Math.cos(a), -Math.sin(a));
     this._camY = camera.position.y;
-    // Keep the grid tighter than the open-ocean demo so a high courseware camera
-    // still resolves swell across the coastal disc.
-    u.uGridScale.value = Math.max(1, Math.abs(this._camY) / 4);
+    u.uGridScale.value = Math.max(1, Math.abs(this._camY) / 3.2);
     const coarse = Math.abs(this._camY) > HIGH_CAMERA ? 1 : 0;
     this.mesh.geometry = this.grids[coarse];
     u.uCellStep.value = (2 * Math.PI) / (this._angular >> coarse);

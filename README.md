@@ -30,7 +30,7 @@ python3 -m http.server 8734
 - `js/content.js`：各设备的中文说明
 - `js/plant.js`：厂区模型、管道、箭头和粒子
 - `js/main.js`：渲染、后期、镜头和交互
-- `js/ocean.js`：沿岸海水。把 Ultra-Water 的 FFT 海面裁到圆盘海侧
+- `js/ocean.js`：包围厂区岛屿的 Ultra-Water FFT 海面，铺到天际线
 - `vendor/three/`：Three.js 和后期通道
 - `vendor/ultra-water/`：Ultra-Water 的海面模拟（MIT，见该目录 LICENSE）
 - `fonts/course.woff2`：课件用到的中文字形
@@ -41,7 +41,7 @@ python3 -m http.server 8734
 
 ## 海水
 
-外海是 [Ultra-Water](https://github.com/8vdpxdrv4c-dot/Ultra-Water) 的 FFT 海面（`OceanSim` + `OceanSurface`），裁在圆盘海侧，不铺进厂区。天空仍是原来的晴天穹顶，设备阴影和金属不变。岸线用一份直线海岸的深度图驱动近岸浪和泡沫；工艺水池里的水面仍是普通材质。源码在 `vendor/ultra-water/`（模拟、海面、岸线、焦散、平面反射），不依赖本机旁边的另一份仓库。低画质会减网格、关掉平面反射和焦散。
+外海是 [Ultra-Water](https://github.com/8vdpxdrv4c-dot/Ultra-Water) 的 FFT 海面（`OceanSim` + `OceanSurface`），铺到天际线，从四面把厂区岛屿围住。厂区、堤岸和沙丘在岛上，近岸浪用岛屿水深图。天空仍是晴天穹顶，设备阴影和金属不变。工艺水池里的水面仍是普通材质。源码在 `vendor/ultra-water/`（模拟、海面、岸线、焦散、平面反射）。低画质会减网格、关掉平面反射和焦散。
 
 ## 海水三轮
 
