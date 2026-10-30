@@ -31,6 +31,11 @@ function materials() {
   MAT.water = std(0x2aa4b4, 0.08, 0.16, { transparent: true, opacity: 0.62, roughness: 0.08 });
   MAT.lamp = std(0xfff6e8, 0.15, 0.35, { emissive: 0xffe2b0, emissiveIntensity: 0.32 });
   MAT.warmLamp = std(0xffe1c2, 0.15, 0.38, { emissive: 0xffc48a, emissiveIntensity: 0.2 });
+  MAT.vessel = std(0xf4f7fa, 0.82, 0.16);
+  MAT.hall = std(0xd7dee6, 0.42, 0.38);
+  MAT.hallDark = std(0x8b97a3, 0.5, 0.36);
+  MAT.flow = std(0x7ee7ff, 0.15, 0.28, { emissive: 0x3ecfff, emissiveIntensity: 1.15 });
+  MAT.flowGold = std(0xffc56a, 0.25, 0.32, { emissive: 0xffb450, emissiveIntensity: 0.8 });
 }
 
 function geo(key, build) {
@@ -631,8 +636,8 @@ export function createPlant(scene) {
   addBox(filter, 7.2, 0.4, 6.4, MAT.concrete, 0.4, 0.2, 0, "filter");
   const fz = [-2.1, -0.7, 0.7, 2.1];
   fz.forEach((z) => {
-    addCyl(filter, 0.62, 0.62, 3.15, MAT.paint, 0.2, 2.05, z, "filter", true, 22);
-    const dome = new THREE.Mesh(new THREE.SphereGeometry(0.62, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), MAT.paint);
+    addCyl(filter, 0.62, 0.62, 3.15, MAT.vessel, 0.2, 2.05, z, "filter", true, 22);
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(0.62, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), MAT.vessel);
     dome.position.set(0.2, 3.62, z);
     dome.castShadow = true;
     dome.userData.id = "filter";
@@ -992,33 +997,25 @@ export function createPlant(scene) {
   root.add(tank);
   [ -1.8, 2.2 ].forEach((z, i) => {
     const x = 57.5;
-    addCyl(tank, 1.7, 1.7, 4.8, MAT.tank, x, 2.6, z, "tank", true, 28);
-    const dome = new THREE.Mesh(new THREE.SphereGeometry(1.7, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), MAT.tank);
-    dome.position.set(x, 5.0, z);
-    dome.castShadow = true;
-    dome.userData.id = "tank";
-    tank.add(dome);
-    addCyl(tank, 0.08, 0.1, 0.5, MAT.steel, x, 5.7, z, "tank", false, 8);
-    // level window
-    const win = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.28, 2.2),
-      new THREE.MeshBasicMaterial({ color: 0x9ee7ff, transparent: true, opacity: 0.85 })
-    );
-    win.position.set(x, 2.5, z + 1.71);
-    tank.add(win);
-    const water = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.2, 1.45),
-      new THREE.MeshBasicMaterial({ color: 0x1ec8d4, transparent: true, opacity: 0.95 })
-    );
-    water.position.set(x, 2.15, z + 1.73);
-    tank.add(water);
-    addBox(tank, 0.15, 4.2, 0.15, MAT.rail, x + 1.85, 2.3, z, "tank", false);
-    contact(tank, 2.1, x, z);
-    if (i === 1) rails(tank, x, z, 3.2, 3.2, 5.05, "tank");
+    const sphere = new THREE.Mesh(new THREE.SphereGeometry(1.96, 28, 20), MAT.vessel);
+    sphere.position.set(x, 2.22, z);
+    sphere.castShadow = true;
+    sphere.receiveShadow = true;
+    sphere.userData.id = "tank";
+    tank.add(sphere);
+    addCyl(tank, 1.18, 1.42, 0.46, MAT.steelDark, x, 0.4, z, "tank", true, 20);
+    const band = new THREE.Mesh(new THREE.TorusGeometry(1.98, 0.045, 8, 28), MAT.steel);
+    band.rotation.x = Math.PI / 2;
+    band.position.set(x, 2.22, z);
+    band.userData.id = "tank";
+    tank.add(band);
+    addCyl(tank, 0.07, 0.09, 0.35, MAT.steel, x, 4.28, z, "tank", false, 8);
+    contact(tank, 2.3, x, z);
+    if (i === 1) rails(tank, x, z, 3.6, 3.6, 0.42, "tank");
   });
-  addBox(tank, 3.2, 0.35, 6.4, MAT.concrete, 57.5, 0.18, 0.2, "tank");
-  plaque(tank, "淡水（产品）", "淡水水箱", 57.5, 3.4, 4.3, 2.1, 0.9);
-  register("tank", tank, [57.5, 6.2, 0.2], {
+  addBox(tank, 8.2, 0.28, 6.2, MAT.concrete, 57.5, 0.16, 0.2, "tank");
+  plaque(tank, "淡水（产品）", "淡水水箱", 57.5, 2.4, 4.85, 2.1, 0.9);
+  register("tank", tank, [57.5, 4.55, 0.2], {
     pos: [60.5, 7.2, 14],
     target: [57.5, 3.0, 0.4],
     fov: 32,
@@ -1375,6 +1372,144 @@ export function createPlant(scene) {
       attr.needsUpdate = true;
     });
   });
+
+  // Industrial massing in process bands: silo row, hall and vents, pipe rack, shore spheres.
+  // Scenery only — clickable unit ids stay on the RO train. Clear of both patrol loops.
+  {
+    const siloZ = -8.35;
+    const siloX = [-12.8, -10.5, -8.2, -5.9, -3.6, -1.3, 1.0, 3.3];
+    const siloH = [9.2, 10.6, 8.4, 11.2, 9.0, 10.4, 8.8, 10.0];
+    siloX.forEach((x, i) => {
+      const h = siloH[i];
+      addCyl(root, 0.78, 0.78, h, MAT.vessel, x, h / 2 + 0.18, siloZ, null, true, 20);
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.78, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), MAT.vessel);
+      cap.position.set(x, h + 0.18, siloZ);
+      cap.castShadow = true;
+      root.add(cap);
+      addCyl(root, 0.96, 1.12, 0.34, MAT.steelDark, x, 0.22, siloZ, null, true, 16);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.82, 0.03, 6, 18), MAT.steel);
+      ring.rotation.x = Math.PI / 2;
+      ring.position.set(x, h * 0.62, siloZ);
+      ring.castShadow = true;
+      root.add(ring);
+    });
+    const manifold = addCyl(root, 0.16, 0.16, 17.4, MAT.stainless, -4.75, 2.35, siloZ + 0.95, null, true, 12);
+    manifold.rotation.z = Math.PI / 2;
+    siloX.forEach((x) => {
+      const drop = addCyl(root, 0.07, 0.07, 0.95, MAT.stainless, x, 2.35, siloZ + 0.48, null, false, 8);
+      drop.rotation.x = Math.PI / 2;
+    });
+
+    // Long process hall plus a taller bay, north of the train and south of the outer patrol.
+    addBox(root, 15.2, 5.15, 3.35, MAT.hall, 32.4, 2.72, -10.45, null, true);
+    addBox(root, 15.5, 0.28, 3.65, MAT.hallDark, 32.4, 5.38, -10.45, null, true);
+    addBox(root, 5.2, 7.2, 3.75, MAT.hall, 43.6, 3.75, -10.28, null, true);
+    addBox(root, 5.5, 0.32, 4.05, MAT.hallDark, 43.6, 7.45, -10.28, null, true);
+    addBox(root, 3.4, 4.05, 2.9, MAT.hallDark, 40.5, 2.18, -10.5, null, true);
+    addBox(root, 1.3, 0.7, 1.1, MAT.steelDark, 30.2, 5.85, -10.5, null, true);
+    addBox(root, 1.6, 0.9, 1.2, MAT.steelDark, 34.6, 5.95, -10.2, null, true);
+    const glass = std(0xc5dcea, 0.2, 0.12, { emissive: 0x9fd4ea, emissiveIntensity: 0.18 });
+    [-2.4, 0.4, 3.2].forEach((dx) => {
+      addBox(root, 2.1, 1.35, 0.08, glass, 32.4 + dx, 2.55, -8.72, null, false);
+    });
+    addBox(root, 1.8, 1.7, 0.08, glass, 43.6, 3.3, -8.35, null, false);
+
+    function stack(x, z, baseY, h) {
+      addCyl(root, 0.34, 0.42, h, MAT.hallDark, x, baseY + h / 2, z, null, true, 12);
+      addCyl(root, 0.5, 0.5, 0.16, MAT.steel, x, baseY + h, z, null, true, 12);
+    }
+    stack(29.4, -10.45, 5.5, 6.6);
+    stack(43.6, -10.28, 7.6, 5.4);
+    stack(35.8, -10.45, 5.5, 3.2);
+
+    const steamSprite = softCircle();
+    function steam(x, z, y0, n, rise) {
+      const positions = new Float32Array(n * 3);
+      const phases = Array.from({ length: n }, (_, i) => i / n);
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+      const pts = new THREE.Points(geo, new THREE.PointsMaterial({
+        size: 0.85,
+        map: steamSprite,
+        transparent: true,
+        opacity: 0.28,
+        depthWrite: false,
+        color: 0xf4f7f8,
+      }));
+      pts.frustumCulled = false;
+      root.add(pts);
+      tickers.push((t) => {
+        for (let i = 0; i < n; i++) {
+          const p = (phases[i] + t * 0.1) % 1;
+          positions[i * 3] = x + Math.sin(p * 7 + i) * p * 0.55;
+          positions[i * 3 + 1] = y0 + p * rise;
+          positions[i * 3 + 2] = z + Math.cos(p * 5 + i) * p * 0.4;
+        }
+        geo.attributes.position.needsUpdate = true;
+      });
+    }
+    steam(29.4, -10.45, 12.2, 14, 5.2);
+    steam(43.6, -10.28, 13.15, 14, 4.6);
+    steam(-10.5, siloZ, 10.9, 8, 3.2);
+    steam(-5.9, siloZ, 11.5, 8, 3.4);
+
+    // Pipe rack behind the silo row. Teaching cameras sit on the south side, so this stays out of those shots.
+    const rackZ = -11.25;
+    [-8, -2, 4].forEach((x) => {
+      addBox(root, 0.14, 2.05, 0.14, MAT.steelDark, x, 1.08, rackZ - 0.38, null, true);
+      addBox(root, 0.14, 2.05, 0.14, MAT.steelDark, x, 1.08, rackZ + 0.38, null, true);
+      addBox(root, 0.16, 0.1, 1.05, MAT.steel, x, 2.12, rackZ, null, false);
+    });
+    const header = addCyl(root, 0.22, 0.22, 16, MAT.stainless, -1, 1.55, rackZ - 0.12, null, true, 14);
+    header.rotation.z = Math.PI / 2;
+    const headerB = addCyl(root, 0.14, 0.14, 16, MAT.yellow, -1, 2.05, rackZ + 0.16, null, true, 12);
+    headerB.rotation.z = Math.PI / 2;
+
+    // Heavy sleeper run on the south brick edge, in front of the service road and behind every unit camera.
+    [-2, 10, 22, 34, 46].forEach((x) => {
+      addBox(root, 1.15, 0.28, 0.7, MAT.concreteDark, x, 0.18, 16.75, null, true);
+    });
+    const sleeper = addCyl(root, 0.42, 0.42, 54, MAT.stainless, 22, 0.62, 16.7, null, true, 16);
+    sleeper.rotation.z = Math.PI / 2;
+    const sleeperB = addCyl(root, 0.24, 0.24, 54, MAT.steel, 22, 1.15, 17.15, null, true, 14);
+    sleeperB.rotation.z = Math.PI / 2;
+    const sleeperC = addCyl(root, 0.13, 0.13, 54, MAT.yellow, 22, 1.05, 16.22, null, true, 10);
+    sleeperC.rotation.z = Math.PI / 2;
+
+    // White product spheres grouped on the east pad, off the dunes and the freshwater channel.
+    [[65.2, -6.2, 2.15], [70.4, -3.2, 1.7], [72.4, -6.8, 1.35], [67.2, -0.4, 1.22], [62.0, -2.2, 1.05]].forEach(([x, z, r]) => {
+      const s = new THREE.Mesh(new THREE.SphereGeometry(r, 24, 16), MAT.vessel);
+      s.position.set(x, r + 0.18, z);
+      s.castShadow = true;
+      s.receiveShadow = true;
+      root.add(s);
+      addCyl(root, r * 0.58, r * 0.74, 0.34, MAT.steelDark, x, 0.22, z, null, true, 16);
+      const eq = new THREE.Mesh(new THREE.TorusGeometry(r + 0.02, 0.035, 6, 20), MAT.steel);
+      eq.rotation.x = Math.PI / 2;
+      eq.position.set(x, r + 0.18, z);
+      root.add(eq);
+    });
+    addBox(root, 0.16, 5.6, 0.16, MAT.steel, 70.4, 2.8, -9.5, null, true);
+    addBox(root, 0.16, 5.6, 0.16, MAT.steel, 73.2, 2.8, -9.5, null, true);
+    addBox(root, 3.2, 0.14, 0.16, MAT.yellow, 71.8, 5.55, -9.5, null, true);
+    addBox(root, 0.07, 1.15, 0.07, MAT.steelDark, 71.8, 4.85, -9.5, null, false);
+
+    function flowRun(x0, x1, z, mat, w = 0.12) {
+      addBox(root, x1 - x0, 0.03, w, mat, (x0 + x1) / 2, 0.048, z, null, false);
+    }
+    function flowTap(x, z0, z1, mat) {
+      addBox(root, 0.2, 0.03, Math.abs(z1 - z0), mat, x, 0.05, (z0 + z1) / 2, null, false);
+    }
+    flowRun(-14, 58, 4.85, MAT.flow, 0.72);
+    flowRun(-12, 54, 5.85, MAT.flow, 0.28);
+    flowRun(-12, 46, -5.15, MAT.flowGold, 0.55);
+    [-12.2, -4.5, 4.8, 16.2, 28, 40.2, 52].forEach((x, i) => {
+      flowTap(x, 4.85, 6.35, i % 2 ? MAT.flowGold : MAT.flow);
+      if (x < 48) flowTap(x, -5.15, -6.15, i % 2 ? MAT.flow : MAT.flowGold);
+    });
+    flowTap(-9.6, -4.3, 3.5, MAT.flow);
+    flowTap(21.8, 2.5, 4.85, MAT.flowGold);
+  }
 
   // default focus: RO cutaway
   tickers.forEach((fn) => fn(0, 0.016, true));
