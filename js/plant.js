@@ -405,6 +405,88 @@ export function createPlant(scene) {
   quayDeck.receiveShadow = true;
   root.add(quayDeck);
 
+  // Two site-security officers. Loops stay on the brick yard, clear of tanks and the product channel.
+  function makeGuard(vestColor) {
+    const g = new THREE.Group();
+    const navy = std(0x1a3d73, 0.12, 0.5);
+    const vest = std(vestColor, 0.06, 0.4, { emissive: vestColor, emissiveIntensity: 0.18 });
+    const skin = std(0xc48a62, 0.04, 0.64);
+    const boot = std(0x1b1e22, 0.12, 0.58);
+    const cap = std(0x142848, 0.22, 0.42);
+    function shade(mesh) {
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      return mesh;
+    }
+    function leg(side) {
+      const pivot = new THREE.Group();
+      pivot.position.set(side * 0.1, 0.9, 0);
+      const thigh = shade(new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.055, 0.44, 8), navy));
+      thigh.position.y = -0.22;
+      const shoe = shade(new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.07, 0.2), boot));
+      shoe.position.set(0, -0.46, 0.03);
+      pivot.add(thigh, shoe);
+      return pivot;
+    }
+    function arm(side) {
+      const pivot = new THREE.Group();
+      pivot.position.set(side * 0.26, 1.38, 0);
+      const limb = shade(new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.038, 0.42, 6), navy));
+      limb.position.y = -0.22;
+      pivot.add(limb);
+      return pivot;
+    }
+    const leftLeg = leg(-1);
+    const rightLeg = leg(1);
+    const leftArm = arm(-1);
+    const rightArm = arm(1);
+    const torso = shade(new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.46, 0.18), navy));
+    torso.position.y = 1.2;
+    const vestMesh = shade(new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.3, 0.22), vest));
+    vestMesh.position.y = 1.24;
+    const belt = shade(new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.055, 0.2), boot));
+    belt.position.y = 1.0;
+    const head = shade(new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 10), skin));
+    head.position.y = 1.56;
+    const capTop = shade(new THREE.Mesh(new THREE.CylinderGeometry(0.145, 0.145, 0.06, 10), cap));
+    capTop.position.y = 1.66;
+    const brim = shade(new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.02, 0.1), cap));
+    brim.position.set(0, 1.63, 0.08);
+    g.add(leftLeg, rightLeg, leftArm, rightArm, torso, vestMesh, belt, head, capTop, brim);
+    g.scale.setScalar(1.55);
+    g.userData.limbs = { leftLeg, rightLeg, leftArm, rightArm };
+    return g;
+  }
+  function patrol(guard, pts, speed, phase) {
+    const curve = new THREE.CatmullRomCurve3(
+      pts.map((p) => new THREE.Vector3(p[0], p[1], p[2])),
+      true,
+      "catmullrom",
+      0
+    );
+    const len = Math.max(curve.getLength(), 0.001);
+    let dist = ((phase % 1) + 1) % 1 * len;
+    const pos = new THREE.Vector3();
+    const ahead = new THREE.Vector3();
+    root.add(guard);
+    tickers.push((t, dt) => {
+      dist = ((dist + speed * dt) % len + len) % len;
+      const u = dist / len;
+      curve.getPointAt(u, pos);
+      curve.getPointAt((u + 0.012) % 1, ahead);
+      guard.position.set(pos.x, 0.02, pos.z);
+      guard.rotation.y = Math.atan2(ahead.x - pos.x, ahead.z - pos.z);
+      const swing = Math.sin(t * speed * 3.1 + phase * 8) * 0.48;
+      const limbs = guard.userData.limbs;
+      limbs.leftLeg.rotation.x = swing;
+      limbs.rightLeg.rotation.x = -swing;
+      limbs.leftArm.rotation.x = -swing * 0.62;
+      limbs.rightArm.rotation.x = swing * 0.62;
+    });
+  }
+  patrol(makeGuard(0xf0b429), [[-6, 0.02, 15.4], [50, 0.02, 15.4], [50, 0.02, -13.6], [-6, 0.02, -13.6]], 1.7, 0.05);
+  patrol(makeGuard(0xe06a1c), [[10, 0.02, -6.4], [44, 0.02, -6.4], [44, 0.02, 8.6], [10, 0.02, 8.6]], 1.45, 0.4);
+
   const seaY = -0.18;
   const stain = new THREE.Mesh(
     new THREE.PlaneGeometry(38, 0.85),
