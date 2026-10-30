@@ -16,12 +16,6 @@ const PROFILES = {
   high: { angular: 224, reflect: true, reflectScale: 0.5, glint: 0.85, caustics: true },
 };
 
-function coastHeight(shoreX, x) {
-  if (x > shoreX) return 4;
-  const offshore = shoreX - x;
-  return -Math.min(22, 0.45 + offshore * 0.36);
-}
-
 class OpaquePass extends Pass {
   constructor(ocean) {
     super();
@@ -53,7 +47,7 @@ class WaterPass extends Pass {
 }
 
 export function createCoastalOcean({ renderer, scene, camera, coast, seabed, sunDir }) {
-  const shore = bakeShoreMap((x) => coastHeight(coast.shoreX, x), 300, 256);
+  const shore = bakeShoreMap((x, z) => coast.heightAt(x, z), 560, 384);
   const params = defaultOceanParams();
   Object.assign(params, {
     windSpeed: 8.4,
@@ -75,7 +69,7 @@ export function createCoastalOcean({ renderer, scene, camera, coast, seabed, sun
   });
 
   const sim = new OceanSim(renderer, params);
-  const caustics = new WaveCaustics(renderer, sim);
+  const caustics = seabed ? new WaveCaustics(renderer, sim) : null;
   const foam = bakeWaterTextures(renderer);
 
   const cubeRT = new THREE.WebGLCubeRenderTarget(256, {
@@ -90,9 +84,9 @@ export function createCoastalOcean({ renderer, scene, camera, coast, seabed, sun
     if (obj.userData && obj.userData.sky) sky = obj;
   });
   if (sky) sky.layers.enable(SKY_LAYER);
-  const cubeCam = new THREE.CubeCamera(0.5, 400, cubeRT);
+  const cubeCam = new THREE.CubeCamera(1, 1400, cubeRT);
   cubeCam.layers.set(SKY_LAYER);
-  cubeCam.position.set(coast.center.x, 12, coast.center.z);
+  cubeCam.position.set(30, 18, 4);
   const prevBg = scene.background;
   scene.background = null;
   cubeCam.update(renderer, scene);
@@ -108,16 +102,13 @@ export function createCoastalOcean({ renderer, scene, camera, coast, seabed, sun
   const surface = new OceanSurface(sim, shore, skyLite, {
     angular: PROFILES.mid.angular,
     seaLevel: coast.seaY,
-    discCenter: new THREE.Vector2(coast.center.x, coast.center.z),
-    discRadius: coast.radius - 0.15,
-    shoreLine: coast.shoreX + 0.35,
   });
   surface.uniforms.uFoamTex.value = foam.foam;
   surface.uniforms.uShoreWave.value.set(0.62, 28, 1.05, 1);
   surface.uniforms.uWaveDamp.value.set(14, 0.8);
   surface.uniforms.uScatterColor.value.set(0.02, 0.08, 0.1);
   surface.uniforms.uFoam.value.set(0.28, 2.4, 0.9, 1);
-  surface.uniforms.uOptics.value.set(0.02, 0.07, 0.045, 1 / 9000);
+  surface.uniforms.uOptics.value.set(0.02, 0.055, 0.04, 1 / 520);
   surface.uniforms.uGlint.value = PROFILES.mid.glint;
   surface.uniforms.uCamSide.value = -1;
 
@@ -242,7 +233,7 @@ export function createCoastalOcean({ renderer, scene, camera, coast, seabed, sun
 
       this.sim.update(dt);
       this.frame += 1;
-      if (this.causticsOn && (this.level === "high" || this.frame % 2 === 0)) {
+      if (this.caustics && this.causticsOn && (this.level === "high" || this.frame % 2 === 0)) {
         this.caustics.update(skyLite.sunDir);
       }
       this.surface.update(cam, time);

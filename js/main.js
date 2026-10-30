@@ -49,7 +49,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x8ec4ef);
 scene.fog = new THREE.Fog(0xc5ddf6, 380, 820);
 
-const camera = new THREE.PerspectiveCamera(ESTABLISH.fov, 1, 0.25, 420);
+const camera = new THREE.PerspectiveCamera(ESTABLISH.fov, 1, 0.25, 1200);
 camera.position.set(...ESTABLISH.pos);
 
 const pmrem = new THREE.PMREMGenerator(renderer);

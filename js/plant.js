@@ -227,37 +227,72 @@ function curveFrom(pts) {
   );
 }
 
-// Convex slice of a circle in the XY plane (world X / -Z after the mesh is laid flat).
-// seaSide keeps the half where local x <= shoreLocal. The two slices share one rim.
-function coastDiscGeometry(radius, shoreLocal, seaSide, segments = 180) {
-  const k = Math.max(-1, Math.min(1, shoreLocal / radius));
-  const a0 = Math.acos(k);
-  const start = seaSide ? a0 : -a0;
-  const end = seaSide ? Math.PI * 2 - a0 : a0;
-  const steps = Math.max(24, Math.round(segments * (end - start) / (Math.PI * 2)));
-  const arc = [];
-  for (let i = 0; i <= steps; i++) {
-    const a = start + ((end - start) * i) / steps;
-    arc.push([Math.cos(a) * radius, Math.sin(a) * radius]);
+// Island footprint in metres. Negative is inland, positive is offshore.
+// West edge stays just seaward of the quay so the intake tower sits in open water.
+function islandSdf(x, z) {
+  function ellipse(cx, cz, rx, rz) {
+    const nx = (x - cx) / rx;
+    const nz = (z - cz) / rz;
+    return (Math.hypot(nx, nz) - 1) * Math.min(rx, rz);
   }
+  function smin(a, b, k) {
+    const h = Math.max(k - Math.abs(a - b), 0) / k;
+    return Math.min(a, b) - h * h * k * 0.25;
+  }
+  const yard = ellipse(42, 2, 64, 30);
+  const north = ellipse(34, -40, 68, 32);
+  const south = ellipse(34, 30, 50, 22);
+  const west = ellipse(6, 6, 30, 24);
+  return smin(smin(smin(yard, north, 26), south, 22), west, 18);
+}
+
+function islandHeightAt(x, z) {
+  const sdf = islandSdf(x, z);
+  if (sdf < 0) return 1.4 + Math.min(2.4, -sdf * 0.035);
+  return -Math.min(30, 0.35 + sdf * 0.22);
+}
+
+function buildIslandGeometry() {
+  const x0 = -50;
+  const x1 = 130;
+  const z0 = -100;
+  const z1 = 74;
+  const nx = 110;
+  const nz = 100;
+  const stride = nx + 1;
   const positions = [];
   const uvs = [];
-  const mx = shoreLocal;
-  const my = 0;
-  for (let i = 0; i < arc.length - 1; i++) {
-    const tri = [
-      [mx, my],
-      arc[i],
-      arc[i + 1],
-    ];
-    for (const [x, y] of tri) {
-      positions.push(x, y, 0);
-      uvs.push(x * 0.012 + 0.5, y * 0.012 + 0.5);
+  const valid = [];
+  for (let j = 0; j <= nz; j++) {
+    for (let i = 0; i <= nx; i++) {
+      const x = x0 + (i / nx) * (x1 - x0);
+      const z = z0 + (j / nz) * (z1 - z0);
+      const sdf = islandSdf(x, z);
+      const on = sdf <= 18;
+      // Shore sits just under still water so the edge is a beach, not a rim.
+      const y = sdf >= 0
+        ? -0.22 - Math.min(sdf, 18) * 0.08
+        : -0.22 + Math.min(1, -sdf / 12) * 0.2;
+      valid.push(on);
+      positions.push(x, y, z);
+      uvs.push(x * 0.04, z * 0.04);
+    }
+  }
+  const index = [];
+  for (let j = 0; j < nz; j++) {
+    for (let i = 0; i < nx; i++) {
+      const a = j * stride + i;
+      const b = a + 1;
+      const c = a + stride;
+      const d = c + 1;
+      if (!valid[a] || !valid[b] || !valid[c] || !valid[d]) continue;
+      index.push(a, c, b, b, c, d);
     }
   }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
   geo.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+  geo.setIndex(index);
   geo.computeVertexNormals();
   return geo;
 }
@@ -281,18 +316,13 @@ export function createPlant(scene) {
     }
   });
   sandTex.wrapS = sandTex.wrapT = THREE.RepeatWrapping;
-  sandTex.repeat.set(6, 6);
+  sandTex.repeat.set(8, 8);
   const sandMat = std(0xf6d7a4, 0.0, 0.96, { map: sandTex });
-  // One disc: sand on the land side of the quay, FFT ocean on the sea side.
-  const discCenter = new THREE.Vector3(22, 0, 2);
-  const discRadius = 104;
-  const shoreX = -14.2;
-  const shoreLocal = shoreX - discCenter.x;
-  const sand = new THREE.Mesh(coastDiscGeometry(discRadius, shoreLocal, false), sandMat);
-  sand.rotation.x = -Math.PI / 2;
-  sand.position.set(discCenter.x, -0.02, discCenter.z);
-  sand.receiveShadow = true;
-  root.add(sand);
+  // The plant sits on an island. Open ocean (js/ocean.js) surrounds it.
+  const island = new THREE.Mesh(buildIslandGeometry(), sandMat);
+  island.receiveShadow = true;
+  island.castShadow = false;
+  root.add(island);
   function dune(x, z, rx, ry, rz, rot) {
     const m = new THREE.Mesh(new THREE.SphereGeometry(1, 28, 16), sandMat);
     m.scale.set(rx, ry, rz);
@@ -321,105 +351,8 @@ export function createPlant(scene) {
 
   addBox(root, 2.2, 3.2, 42, MAT.concreteDark, -16.2, -0.3, 0, null, true);
 
-  // Open sea is the Ultra-Water FFT surface (js/ocean.js), clipped to this
-  // same half-disc. The bed stays a coloured shoal so refraction has something
-  // to read; caustics are filled in once the ocean sim exists.
   const seaY = -0.18;
   const sunDir = new THREE.Vector3(0.2, 0.46, -0.86).normalize();
-  const causticFlat = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1);
-  causticFlat.needsUpdate = true;
-  causticFlat.wrapS = causticFlat.wrapT = THREE.RepeatWrapping;
-  causticFlat.colorSpace = THREE.NoColorSpace;
-  causticFlat.magFilter = THREE.LinearFilter;
-  causticFlat.minFilter = THREE.LinearFilter;
-  const seabed = new THREE.Mesh(
-    coastDiscGeometry(discRadius, shoreLocal, true),
-    new THREE.ShaderMaterial({
-      side: THREE.DoubleSide,
-      uniforms: {
-        uShore: { value: -17.2 },
-        uCaustics: { value: causticFlat },
-        uCausticsDeep: { value: causticFlat },
-        uCausticSun: { value: sunDir.clone() },
-      },
-      vertexShader: `varying vec3 vW; void main(){ vec4 w=modelMatrix*vec4(position,1.0); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }`,
-      fragmentShader: `
-        varying vec3 vW;
-        uniform float uShore;
-        uniform sampler2D uCaustics;
-        uniform sampler2D uCausticsDeep;
-        uniform vec3 uCausticSun;
-        float waveCaustic(vec2 entryXZ, float depth, float lod) {
-          vec2 uv = entryXZ * 0.0833333;
-          float v = textureLod(uCaustics, uv, lod).r;
-          if (depth > 1.5) {
-            vec2 dtex = textureLod(uCausticsDeep, uv, max(lod - 1.0, 0.0) + log2(max(depth / 10.0, 1.0))).rg;
-            v = depth < 4.0 ? mix(v, dtex.r, (depth - 1.5) / 2.5)
-                            : mix(dtex.r, dtex.g, clamp((depth - 4.0) / 6.0, 0.0, 1.0));
-          }
-          return mix(1.0, v, clamp(depth / 1.5, 0.0, 1.0));
-        }
-        void main() {
-          float d = clamp((uShore - vW.x) / 150.0, 0.0, 1.0);
-          vec3 shore = vec3(0.22, 0.95, 0.92);
-          vec3 deep = vec3(0.015, 0.20, 0.55);
-          float bed = smoothstep(0.35, 0.9, sin(vW.x * 0.31) * sin(vW.z * 0.27) * 0.5 + 0.5);
-          vec3 col = mix(shore, deep, smoothstep(0.05, 0.85, d));
-          col = mix(col, vec3(0.95, 1.05, 0.72), bed * (1.0 - smoothstep(0.15, 0.7, d)) * 0.65);
-          vec3 rs = refract(normalize(-uCausticSun), vec3(0.0, 1.0, 0.0), 0.751879);
-          float depth = 1.8;
-          vec2 entry = vW.xz + rs.xz / max(-rs.y, 0.05) * depth;
-          float cau = clamp(waveCaustic(entry, depth, 0.35), 0.0, 1.8);
-          col *= 0.7 + 0.5 * (cau / 1.8);
-          gl_FragColor = vec4(col, 1.0);
-        }
-      `,
-    })
-  );
-  seabed.rotation.x = -Math.PI / 2;
-  seabed.position.set(discCenter.x, seaY - 2.2, discCenter.z);
-  root.add(seabed);
-  const rim = new THREE.Mesh(
-    new THREE.TorusGeometry(discRadius, 0.38, 8, 180),
-    std(0xddd6cc, 0.04, 0.82)
-  );
-  rim.rotation.x = -Math.PI / 2;
-  rim.position.set(discCenter.x, 0.12, discCenter.z);
-  rim.receiveShadow = true;
-  root.add(rim);
-  const skirt = new THREE.Mesh(
-    new THREE.RingGeometry(discRadius - 0.2, discRadius + 18, 160),
-    new THREE.ShaderMaterial({
-      transparent: true,
-      depthWrite: false,
-      uniforms: {
-        uShore: { value: shoreX },
-        uCenter: { value: new THREE.Vector2(discCenter.x, discCenter.z) },
-        uInner: { value: discRadius },
-        uOuter: { value: discRadius + 18 },
-      },
-      vertexShader: `varying vec3 vW; void main(){ vec4 w=modelMatrix*vec4(position,1.0); vW=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }`,
-      fragmentShader: `
-        varying vec3 vW;
-        uniform float uShore;
-        uniform vec2 uCenter;
-        uniform float uInner;
-        uniform float uOuter;
-        void main() {
-          float dist = length(vW.xz - uCenter);
-          float fade = 1.0 - smoothstep(uInner, uOuter, dist);
-          vec3 sand = vec3(0.90, 0.72, 0.46);
-          vec3 sea = vec3(0.10, 0.42, 0.72);
-          vec3 col = mix(sand, sea, smoothstep(uShore + 6.0, uShore - 10.0, vW.x));
-          gl_FragColor = vec4(col, fade * fade * 0.9);
-        }
-      `,
-    })
-  );
-  skirt.rotation.x = -Math.PI / 2;
-  skirt.position.set(discCenter.x, seaY - 0.35, discCenter.z);
-  skirt.renderOrder = 1;
-  root.add(skirt);
   const stain = new THREE.Mesh(
     new THREE.PlaneGeometry(38, 0.85),
     std(0x7d8680, 0.18, 0.42)
@@ -428,7 +361,7 @@ export function createPlant(scene) {
   stain.position.set(-17.34, seaY + 0.42, 0);
   root.add(stain);
 
-  const skyGeo = new THREE.SphereGeometry(280, 48, 32);
+  const skyGeo = new THREE.SphereGeometry(900, 48, 32);
   const skyMat = new THREE.ShaderMaterial({
     side: THREE.BackSide,
     depthWrite: false,
@@ -1330,8 +1263,8 @@ export function createPlant(scene) {
     flowState,
     plaques,
     sunDir,
-    seabed: seabed.material,
-    coast: { center: discCenter, radius: discRadius, shoreX, seaY },
+    seabed: null,
+    coast: { seaY, heightAt: islandHeightAt },
     tick(dt, t, running) {
       tickers.forEach((fn) => fn(t, dt, running));
     },
