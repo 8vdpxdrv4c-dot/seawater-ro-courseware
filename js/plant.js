@@ -117,12 +117,13 @@ function canvasTex(w, h, draw) {
 }
 
 function brickMap() {
+  // Large gray pavers. Thin, low-contrast joints so a distant yard does not turn into a grid.
   return canvasTex(512, 512, (g) => {
-    g.fillStyle = "#2c3238";
+    g.fillStyle = "#9aa3ab";
     g.fillRect(0, 0, 512, 512);
-    const bw = 62;
-    const bh = 30;
-    const gap = 5;
+    const bw = 168;
+    const bh = 82;
+    const gap = 4;
     const cols = Math.ceil(512 / (bw + gap)) + 2;
     const rows = Math.ceil(512 / (bh + gap)) + 2;
     for (let row = 0; row < rows; row++) {
@@ -131,15 +132,13 @@ function brickMap() {
         const x = Math.round(col * (bw + gap) + off);
         const y = row * (bh + gap);
         const n = ((row * 13 + col * 7) % 9) / 9;
-        const tone = Math.round(118 + n * 52);
-        g.fillStyle = `rgb(${tone - 8},${tone - 2},${tone + 4})`;
+        const tone = Math.round(146 + n * 18);
+        g.fillStyle = `rgb(${tone - 4},${tone - 1},${tone + 2})`;
         g.fillRect(x, y, bw, bh);
-        g.fillStyle = `rgba(255,255,255,${0.05 + n * 0.06})`;
-        g.fillRect(x + 2, y + 2, bw * 0.45, 2);
-        g.fillStyle = "rgba(20,24,28,0.18)";
-        g.fillRect(x, y + bh - 3, bw, 3);
-        g.fillStyle = `rgba(30,34,38,${0.05 + n * 0.08})`;
-        g.fillRect(x + 8 + (n * 20), y + 8, 2, 2);
+        g.fillStyle = `rgba(255,255,255,${0.025 + n * 0.03})`;
+        g.fillRect(x + 4, y + 4, bw * 0.4, 2);
+        g.fillStyle = "rgba(55,62,68,0.07)";
+        g.fillRect(x, y + bh - 2, bw, 2);
       }
     }
   });
@@ -174,7 +173,8 @@ function pavedDeck(w, d) {
   const geo = new THREE.PlaneGeometry(w, d);
   const pos = geo.attributes.position;
   const uv = geo.attributes.uv;
-  for (let i = 0; i < pos.count; i++) uv.setXY(i, pos.getX(i) * 0.16, pos.getY(i) * 0.16);
+  // About 3.6 m by 1.8 m on the ground. The previous 0.16 repeat made a fine grid that moiréd from the panorama.
+  for (let i = 0; i < pos.count; i++) uv.setXY(i, pos.getX(i) * 0.09, pos.getY(i) * 0.09);
   geo.rotateX(-Math.PI / 2);
   return geo;
 }
@@ -403,6 +403,10 @@ export function createPlant(scene) {
 
   const bricks = brickMap();
   bricks.wrapS = bricks.wrapT = THREE.RepeatWrapping;
+  bricks.generateMipmaps = true;
+  bricks.minFilter = THREE.LinearMipmapLinearFilter;
+  bricks.magFilter = THREE.LinearFilter;
+  bricks.anisotropy = 1;
   const brickMat = std(0xc5ccd2, 0.08, 0.78, { map: bricks });
   const yardBase = new THREE.Mesh(new THREE.BoxGeometry(92, 0.76, 36), std(0x5c6368, 0.06, 0.88));
   yardBase.position.set(28, -0.42, 0);
