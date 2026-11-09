@@ -954,7 +954,7 @@ export function createPlant(scene) {
   addCyl(ro, 0.12, 0.12, 5.4, std(0x8d6a45, 0.6, 0.35), 31.3, 3.3, -0.4, "membrane", false).rotation.x = Math.PI / 2;
   rails(ro, 28, 0.4, 7.6, 6.4, 0.4, "membrane");
   contact(ro, 4.2, 28, 0.4);
-  const plate = plaque(ro, "H₂O 透过", "盐截留", 30.6, 2.55, 3.55, 1.8, 0.85);
+  const plate = plaque(ro, "交叉流", "产水 + 浓水", 30.6, 2.55, 3.55, 1.8, 0.85);
   plate.userData.id = "membrane";
   register("membrane", ro, [28, 4.2, 1.2], {
     pos: [31.6, 3.6, 10.4],
@@ -978,7 +978,7 @@ export function createPlant(scene) {
   flange(erd, 0.2, 41.55, 1.35, -1.5, "x", "erd");
   rails(erd, 40.2, -1.4, 4.6, 3.0, 0.35, "erd");
   contact(erd, 2.8, 40.2, -1.4);
-  plaque(erd, "能量回收", "浓水 → 进料", 40.2, 2.5, 0.5, 1.7, 0.75);
+  plaque(erd, "能量回收", "浓水泄压排放", 40.2, 2.5, 0.5, 1.9, 0.75);
   tickers.push((t, dt) => {
     rotor.rotation.x += dt * (0.15 + flowState.amount * 3.2);
     boost.rotation.x += dt * 6 * flowState.amount;
@@ -1080,6 +1080,7 @@ export function createPlant(scene) {
   inlandPool.renderOrder = 3;
   root.add(inlandPool);
   addBox(root, 1.8, 0.35, 1.2, std(0xd8e2e8, 0.2, 0.45), 61.2, 0.22, 12.4, null, false);
+  plaque(root, "教学水景", "非饮用支路", 62, 1.35, 49, 1.7, 0.62);
 
   // ---------- pipes ----------
   const pipeDefs = [
@@ -1211,6 +1212,21 @@ export function createPlant(scene) {
       ],
     },
     {
+      id: "supply",
+      kind: "fw",
+      radius: 0.16,
+      color: 0xd5f1ff,
+      arrow: 0xf7fdff,
+      speed: 0.14,
+      pts: [
+        [60.2, 2.5, 0.2],
+        [64, 2.15, 10],
+        [56, 1.45, 24],
+        [48, 0.7, 38],
+        [46, 0.42, 46],
+      ],
+    },
+    {
       id: "brine",
       kind: "br",
       radius: 0.14,
@@ -1279,6 +1295,16 @@ export function createPlant(scene) {
   for (let i = 0; i < 4; i++) {
     addCyl(root, 0.08, 0.1, 0.8, MAT.steel, -30, -0.2, -4.2 + i * 0.7, null, false, 8);
   }
+  plaque(root, "浓水排放", "扩散器", -20, 2.3, -5.2, 1.6, 0.62);
+
+  // Piped product supply to a land-side user connection. The open channel stays a teaching water feature.
+  addBox(root, 1.4, 0.7, 1.1, MAT.paintDeep, 46, 0.4, 46, null, true);
+  addCyl(root, 0.22, 0.22, 0.35, MAT.stainless, 46, 0.85, 46, null, true, 12);
+  plaque(root, "陆地供水", "成品管道", 46, 1.65, 47.6, 1.7, 0.62);
+
+  // Stacks, shore spheres and the hall are massing, not steps in the RO train.
+  plaque(root, "厂区布景", "非工艺设备", 36, 3.6, -7.8, 1.7, 0.62);
+  plaque(root, "球罐布景", "不是淡水产品", 74.2, 3.3, -4.2, 1.7, 0.62);
 
   // Unit cone (radius 0.5, length 1). Instances scale to sit inside each pipe.
   const arrowGeo = new THREE.ConeGeometry(0.5, 1, 5);
