@@ -4,16 +4,16 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { BokehPass } from "three/addons/postprocessing/BokehPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
-import { createPlant } from "./plant.js";
-import { createCoastalOcean } from "./ocean.js";
-import { CONTENT, STAGES, ORDER } from "./content.js";
+import { createReferenceFlare, SKY_PALETTE } from "./reference-sky.js?v=20261111-polish-v2";
+import { createPlant } from "./plant.js?v=20261111-polish-v2";
+import { createCoastalOcean } from "./ocean.js?v=20261111-polish-v2";
+import { CONTENT, STAGES, ORDER } from "./content.js?v=20261111-polish-v2";
 
 const $ = (id) => document.getElementById(id);
 const canvas = $("c");
 const q = new URLSearchParams(location.search);
 
-const PANORAMA = { pos: [92, 22, 102], target: [10, 2.4, -2], fov: 46 };
+const PANORAMA = { pos: [69, 21, 75], target: [22, 2.0, 0], fov: 50 };
 const ESTABLISH = { pos: [16, 42, 88], target: [22, 1.2, -2], fov: 32 };
 
 const settings = {
@@ -23,10 +23,10 @@ const settings = {
   maxBlur: 5.6,
   focusManual: false,
   focusDist: 16,
-  bloomS: 0.14,
-  bloomT: 0.94,
-  bloomR: 0.22,
-  exposure: 0.84,
+  bloomS: 0.18,
+  bloomT: 1.80,
+  bloomR: 0.20,
+  exposure: 0.95,
   light: 1,
   flow: 1,
   fps: false,
@@ -52,19 +52,18 @@ scene.fog = null;
 const camera = new THREE.PerspectiveCamera(ESTABLISH.fov, 1, 0.25, 1200);
 camera.position.set(...ESTABLISH.pos);
 
-const pmrem = new THREE.PMREMGenerator(renderer);
-scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.05).texture;
+// Reference sky supplies the same bounded radiance to metal and ocean.
 scene.environmentIntensity = 0.72;
 
-const hemi = new THREE.HemisphereLight(0x6e8eae, 0x3a2818, 0.28);
+const hemi = new THREE.HemisphereLight(0x9aadc4, 0x655748, 0.90);
 scene.add(hemi);
-const key = new THREE.DirectionalLight(0xfff2d6, 3.45);
+const key = new THREE.DirectionalLight(SKY_PALETTE.sunColor, 2.35);
 key.position.set(58, 34, 16);
 key.target.position.set(12, 0, 2);
 key.castShadow = true;
-key.shadow.intensity = 1.45;
+key.shadow.intensity = 0.92;
 key.shadow.mapSize.set(4096, 4096);
-key.shadow.radius = 1;
+key.shadow.radius = 2.2;
 key.shadow.camera.left = -96;
 key.shadow.camera.right = 108;
 key.shadow.camera.top = 72;
@@ -74,7 +73,7 @@ key.shadow.camera.far = 280;
 key.shadow.bias = -0.00022;
 key.shadow.normalBias = 0.025;
 scene.add(key, key.target);
-const rim = new THREE.DirectionalLight(0x9ec8f0, 0.28);
+const rim = new THREE.DirectionalLight(0x96b2d6, 0.65);
 rim.position.set(-30, 22, -24);
 scene.add(rim);
 const warm = new THREE.DirectionalLight(0xffd2b0, 0.06);
@@ -91,6 +90,7 @@ const ocean = createCoastalOcean({
   seabed: plant.seabed,
 });
 key.position.copy(key.target.position).addScaledVector(ocean.sunDir, 140);
+scene.environment = ocean.sky.environment;
 const selectRing = new THREE.Mesh(
   new THREE.TorusGeometry(1.15, 0.045, 8, 48),
   new THREE.MeshBasicMaterial({ color: 0x7ee7ff, transparent: true, opacity: 0.85 })
@@ -125,8 +125,11 @@ controls.addEventListener("change", clampAboveWater);
 const composer = new EffectComposer(renderer);
 composer.addPass(ocean.opaquePass);
 const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), settings.bloomS, settings.bloomR, settings.bloomT);
-composer.addPass(bloom);
 composer.addPass(ocean.waterPass);
+// Bloom all HDR radiance after water composition, not the land-only buffer.
+composer.addPass(bloom);
+const sunFlare = createReferenceFlare(camera, ocean.sunDir, plant.pick);
+composer.addPass(sunFlare.pass);
 const bokeh = new BokehPass(scene, camera, { focus: 20, aperture: 0, maxblur: 0 });
 bokeh.enabled = false;
 composer.addPass(bokeh);
@@ -188,16 +191,30 @@ function resize() {
   const w = window.innerWidth;
   const h = window.innerHeight;
   camera.aspect = w / h;
-  // Keep the subject left of the knowledge panel on wide screens.
-  if (w > 980) {
-    const shift = current ? w * 0.16 : w * 0.06;
-    camera.setViewOffset(w, h, shift, 0, w, h);
-  } else {
-    camera.clearViewOffset();
-  }
-  camera.updateProjectionMatrix();
+  applyViewFraming(w,h);
   renderer.setSize(w, h, false);
   composer.setSize(w, h);
+}
+
+function applyViewFraming(w=window.innerWidth,h=window.innerHeight) {
+  // Use actual sidebar width instead of arbitrary 6%/16% offsets. On phones,
+  // frame the equipment above the three non-overlapping bottom UI tiers.
+  const panelRect=$("panel").getBoundingClientRect();
+  if(w>980) {
+    camera.zoom=1;
+    camera.setViewOffset(w,h,(panelRect.width+32)*.5,0,w,h);
+  } else {
+    const reserved=Math.max(144,h-panelRect.top);
+    const usableHeight=Math.max(100,h-reserved-56);
+    camera.zoom=Math.min(1,(w/h)/(current?1.15:1.25),current?usableHeight/h*1.65:1);
+    camera.setViewOffset(w,h,0,reserved*.5,w,h);
+  }
+  camera.updateProjectionMatrix();
+}
+function updateScenePresentation() {
+  for(const plaque of plant.plaques) {
+    plaque.visible = current !== "membrane" && camera.position.distanceToSquared(plaque.position)>plaque.userData.hideNear**2;
+  }
 }
 
 function ease(k) {
@@ -668,10 +685,7 @@ function bindUI() {
     if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
     else document.exitFullscreen?.();
   });
-  $("gear").addEventListener("click", () => {
-    $("settings").classList.toggle("open");
-    $("gear").classList.toggle("on");
-  });
+  // Legacy settings remain hidden; the preview has no end-user tuning/debug panel.
   $("setX").addEventListener("click", () => {
     $("settings").classList.remove("open");
     $("gear").classList.remove("on");
@@ -715,23 +729,23 @@ function bindUI() {
       aperture: 0.7,
       maxBlur: 5.6,
       focusManual: false,
-      bloomS: 0.14,
-      bloomT: 0.94,
-      bloomR: 0.22,
-      exposure: 0.84,
+      bloomS: 0.18,
+      bloomT: 1.80,
+      bloomR: 0.20,
+      exposure: 0.95,
       light: 1,
       flow: 1,
     });
     $("aperture").value = 0.7;
     $("maxblur").value = 5.6;
-    $("bloomS").value = 0.14;
-    $("bloomT").value = 0.94;
-    $("bloomR").value = 0.22;
-    $("exposure").value = 0.84;
+    $("bloomS").value = 0.18;
+    $("bloomT").value = 1.80;
+    $("bloomR").value = 0.20;
+    $("exposure").value = 0.95;
     $("light").value = 1;
     $("flow").value = 1;
     ["apV", "mbV", "bsV", "btV", "brV", "exV", "liV", "flV"].forEach((id, i) => {
-      const v = [0.7, 5.6, 0.14, 0.94, 0.22, 0.84, 1, 1][i];
+      const v = [0.7, 5.6, 0.18, 1.80, 0.20, 0.95, 1, 1][i];
       $(id).textContent = i === 1 ? v.toFixed(1) : v.toFixed(2);
     });
     applyQuality(pickQuality());
@@ -805,13 +819,8 @@ function frame() {
     const g = sfxOn && running ? 0.045 : 0;
     sfxGain.gain.setTargetAtTime(g, audioCtx.currentTime, 0.08);
   }
-  {
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-    if (w > 980) camera.setViewOffset(w, h, current ? w * 0.16 : w * 0.06, 0, w, h);
-    else camera.clearViewOffset();
-    camera.updateProjectionMatrix();
-  }
+  applyViewFraming();
+  updateScenePresentation();
   placeLabels();
   if (current === "pump") {
     const cell = $("params").querySelector("dd");
@@ -819,6 +828,7 @@ function frame() {
   }
   $("timer").textContent = `${running ? "运行中" : "已停止"} ${fmt(runTime)}`;
   ocean.update(dt, t, camera);
+  sunFlare.update(t);
   composer.render();
   if (settings.fps) {
     const fps = dt > 0 ? 1 / dt : 0;
@@ -859,8 +869,11 @@ async function main() {
     camera.fov = PANORAMA.fov;
     camera.updateProjectionMatrix();
   }
+  applyViewFraming();
+  updateScenePresentation();
   plant.tick(0.016, 0, true);
   ocean.update(0.016, 0.016, camera);
+  sunFlare.update(0);
   composer.render();
   bootOut();
   clock.getDelta();

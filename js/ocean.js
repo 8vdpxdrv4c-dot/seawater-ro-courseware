@@ -6,7 +6,7 @@ import { bakeShoreMap } from "../vendor/ultra-water/water/shoreMap.js";
 import { bakeWaterTextures } from "../vendor/ultra-water/water/bakeTextures.js";
 import { WaveCaustics } from "../vendor/ultra-water/water/Caustics.js";
 import { PlanarReflection } from "../vendor/ultra-water/engine/PlanarReflection.js";
-import { SkySystem } from "../vendor/ultra-water/scene/sky.js";
+import { createReferenceSky } from "./reference-sky.js?v=20261111-polish-v2";
 
 const REFLECT_LAYER = 1;
 
@@ -47,8 +47,7 @@ class WaterPass extends Pass {
 }
 
 export function createCoastalOcean({ renderer, scene, camera, coast, seabed }) {
-  const sky = new SkySystem(renderer);
-  sky.update();
+  const sky = createReferenceSky(renderer);
   sky.background.userData.sky = true;
   scene.add(sky.background);
 
@@ -88,12 +87,20 @@ export function createCoastalOcean({ renderer, scene, camera, coast, seabed }) {
     angular: PROFILES.mid.angular,
     seaLevel: coast.seaY,
   });
+  // Bound the solar GGX lobe BEFORE bloom/ACES, not the whole ocean image.
+  // Reflection, blue absorption, foam and diffuse scattering retain their range.
+  surface.material.fragmentShader = surface.material.fragmentShader.replace(
+    'vec3 col = mix(body, refl, F) + spec;',
+    `spec *= .58;
+     float solarPeak = max(max(spec.r,spec.g),spec.b);
+     if(solarPeak > .24) spec *= (.24 + .52*(1.0-exp(-(solarPeak-.24)/.52))) / solarPeak;
+     vec3 col = mix(body, refl, F) + spec;`);
   surface.uniforms.uFoamTex.value = foam.foam;
   surface.uniforms.uShoreWave.value.set(0.28, 34, 0.85, 0.55);
   surface.uniforms.uWaveDamp.value.set(14, 0.8);
-  surface.uniforms.uScatterColor.value.set(0.02, 0.08, 0.1);
+  surface.uniforms.uScatterColor.value.set(0.025, 0.105, 0.135);
   surface.uniforms.uFoam.value.set(0.08, 1.4, 1.4, 0.95);
-  surface.uniforms.uOptics.value.set(0.02, 0.05, 0.04, 1 / 2800);
+  surface.uniforms.uOptics.value.set(0.035, 0.05, 0.04, 1 / 2800);
   surface.uniforms.uGlint.value = PROFILES.mid.glint;
   surface.uniforms.uCamSide.value = -1;
 
@@ -143,6 +150,7 @@ export function createCoastalOcean({ renderer, scene, camera, coast, seabed }) {
     scene,
     camera,
     sunDir: sky.sunDir,
+    sky,
     sim,
     caustics,
     surface,

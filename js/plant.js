@@ -1,41 +1,70 @@
 import * as THREE from "three";
+import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
+import { decorateUnit } from "./industrial-detail.js?v=20261111-polish-v2";
 
 const MAT = {};
 const GEO = new Map();
 
 function std(color, metalness, roughness, extra) {
-  return new THREE.MeshStandardMaterial({ color, metalness, roughness, ...extra });
+  const mat = new THREE.MeshStandardMaterial({ color, metalness, roughness, ...extra });
+  if(metalness > .45) {
+    // Compress only the specular lobe on non-emitting machinery. Diffuse lighting,
+    // sky, exposure and actual lamps are unchanged; preserve hue rather than clip RGB.
+    mat.onBeforeCompile = shader => {
+      shader.fragmentShader = shader.fragmentShader.replace(
+        'vec3 outgoingLight = totalDiffuse + totalSpecular + totalEmissiveRadiance;',
+        `float metalPeak = max(max(totalSpecular.r,totalSpecular.g),totalSpecular.b);
+         if(metalPeak > .40) totalSpecular *= (.40 + .62 * (1.0-exp(-(metalPeak-.40)/.62))) / metalPeak;
+         vec3 outgoingLight = totalDiffuse + totalSpecular + totalEmissiveRadiance;`);
+    };
+    mat.customProgramCacheKey = () => 'industrial-specular-shoulder-v2';
+  }
+  return mat;
 }
 
 function materials() {
-  // Sunny coastal plant: pale concrete, specular metal, white tanks, safety-yellow metal accents.
-  MAT.steel = std(0xb7c0c8, 0.94, 0.2);
-  MAT.steelDark = std(0x8d979f, 0.9, 0.26);
-  MAT.paint = std(0xc5ced4, 0.48, 0.3);
-  MAT.paintDeep = std(0x9aa4ac, 0.52, 0.32);
-  MAT.stainless = std(0xf4f7f8, 0.97, 0.11);
-  MAT.tank = std(0xf7f8f9, 0.9, 0.14);
-  MAT.concrete = std(0xe7e9ec, 0.02, 0.9);
-  MAT.concreteDark = std(0xc9ccc8, 0.03, 0.92);
-  MAT.motor = std(0x4a525a, 0.74, 0.3);
-  MAT.yellow = std(0xf0c419, 0.64, 0.26);
-  MAT.rubber = std(0x2c3136, 0.08, 0.74);
-  MAT.flange = std(0xd8e0e8, 0.95, 0.14);
-  MAT.intake = std(0xc45c58, 0.58, 0.3);
-  MAT.rail = std(0xdfe6ee, 0.9, 0.18);
-  MAT.chemA = std(0xd4923c, 0.28, 0.4);
-  MAT.chemB = std(0x7a68b8, 0.28, 0.4);
-  MAT.chemC = std(0x3aa3ae, 0.32, 0.38);
+  // Painted steel, FRP pressure vessels, brushed alloys and mineral concrete are
+  // deliberately different materials: white coating is NOT polished chrome.
+  MAT.steel = std(0x9cabb5, 0.86, 0.32);
+  MAT.steelDark = std(0x40505e, 0.72, 0.39);
+  MAT.paint = new THREE.MeshPhysicalMaterial({color:0xd2d9da,metalness:.12,roughness:.36,clearcoat:.24,clearcoatRoughness:.3});
+  MAT.paintDeep = std(0x506a78, 0.26, 0.43);
+  MAT.stainless = std(0xd3dcdf, 0.91, 0.38);
+  MAT.tank = new THREE.MeshPhysicalMaterial({color:0xf0eee5,metalness:.06,roughness:.32,clearcoat:.32,clearcoatRoughness:.22});
+  MAT.concrete = std(0xc9c8c1, 0.0, 0.93);
+  MAT.concreteDark = std(0x999d99, 0.0, 0.94);
+  MAT.motor = std(0x2d4758, 0.36, 0.41);
+  MAT.yellow = std(0xd9aa45, 0.22, 0.38);
+  MAT.rubber = std(0x20282c, 0.0, 0.82);
+  MAT.flange = std(0xb9c5ca, 0.88, 0.38);
+  MAT.intake = std(0xb05849, 0.25, 0.45);
+  MAT.rail = std(0xb7c5c9, 0.78, 0.33);
+  MAT.chemA = std(0xc29345, 0.08, 0.48);
+  MAT.chemB = std(0x7a7690, 0.07, 0.48);
+  MAT.chemC = std(0x428c94, 0.08, 0.46);
+  MAT.valve = std(0xa8573f, 0.16, 0.45);
+  MAT.dial = std(0xe8e4d8, 0.03, 0.58);
+  MAT.concentrate = std(0x9b7954, 0.55, 0.38);
+  // Very subtle shared micro-roughness breaks up sterile perfect-metal highlights.
+  const roughData=new Uint8Array(128*128*4);
+  for(let y=0;y<128;y++) for(let x=0;x<128;x++) {
+    const i=(y*128+x)*4, n=(x*17+y*71+(x*y)%29)%23;
+    roughData[i]=roughData[i+1]=roughData[i+2]=226+n;roughData[i+3]=255;
+  }
+  const brushed=new THREE.DataTexture(roughData,128,128);brushed.wrapS=brushed.wrapT=THREE.RepeatWrapping;
+  brushed.magFilter=THREE.LinearFilter;brushed.minFilter=THREE.LinearMipmapLinearFilter;brushed.generateMipmaps=true;
+  brushed.repeat.set(3,12);brushed.needsUpdate=true;
+  for(const mat of [MAT.stainless,MAT.flange,MAT.steel])mat.roughnessMap=brushed;
   MAT.membrane = std(0xd5ecf5, 0.05, 0.35, { transparent: true, opacity: 0.42, side: THREE.DoubleSide, depthWrite: false });
   MAT.tube = std(0xeaf8ff, 0.15, 0.22, { emissive: 0x8fdfff, emissiveIntensity: 0.06 });
   MAT.water = std(0x2aa4b4, 0.08, 0.16, { transparent: true, opacity: 0.62, roughness: 0.08 });
   MAT.lamp = std(0xfff6e8, 0.15, 0.35, { emissive: 0xffe2b0, emissiveIntensity: 0.32 });
   MAT.warmLamp = std(0xffe1c2, 0.15, 0.38, { emissive: 0xffc48a, emissiveIntensity: 0.2 });
-  MAT.vessel = std(0xf4f7fa, 0.82, 0.16);
+  MAT.vessel = new THREE.MeshPhysicalMaterial({color:0xeeeae1,metalness:.05,roughness:.34,clearcoat:.28,clearcoatRoughness:.24});
   MAT.hall = std(0xd7dee6, 0.42, 0.38);
   MAT.hallDark = std(0x8b97a3, 0.5, 0.36);
-  MAT.flow = std(0x7ee7ff, 0.15, 0.28, { emissive: 0x3ecfff, emissiveIntensity: 1.15 });
-  MAT.flowGold = std(0xffc56a, 0.25, 0.32, { emissive: 0xffb450, emissiveIntensity: 0.8 });
+  MAT.flow = std(0x7ee7ff, 0.15, 0.28, { emissive: 0x3ecfff, emissiveIntensity: 0.22 });
+  MAT.flowGold = std(0xffc56a, 0.25, 0.32, { emissive: 0xffb450, emissiveIntensity: 0.18 });
 }
 
 function geo(key, build) {
@@ -48,12 +77,14 @@ function geo(key, build) {
 }
 
 function box(w, h, d) {
-  return geo(`b${w}_${h}_${d}`, () => new THREE.BoxGeometry(w, h, d));
+  return geo(`b${w}_${h}_${d}`, () => Math.min(w,h,d) > 0.10 && Math.max(w,h,d)<16
+    ? new RoundedBoxGeometry(w,h,d,2,Math.min(.065,Math.min(w,h,d)*.12))
+    : new THREE.BoxGeometry(w,h,d));
 }
-function cyl(rt, rb, h, seg = 20) {
-  return geo(`c${rt}_${rb}_${h}_${seg}`, () => new THREE.CylinderGeometry(rt, rb, h, seg));
+function cyl(rt, rb, h, seg = 32) {
+  return geo(`c${rt}_${rb}_${h}_${seg}`, () => new THREE.CylinderGeometry(rt, rb, h, Math.max(seg,24)));
 }
-function sph(r, ws = 20, hs = 12) {
+function sph(r, ws = 32, hs = 20) {
   return geo(`s${r}_${ws}_${hs}`, () => new THREE.SphereGeometry(r, ws, hs));
 }
 
@@ -73,15 +104,18 @@ function addCyl(parent, rt, rb, h, mat, x, y, z, id, shadow = true, seg = 20) {
   return put(parent, new THREE.Mesh(cyl(rt, rb, h, seg), mat), x, y, z, id, shadow);
 }
 
+let contactMaterial;
 function contact(parent, r, x, z) {
-  const m = new THREE.Mesh(
-    geo(`disc${r}`, () => new THREE.CircleGeometry(r, 24)),
-    new THREE.MeshBasicMaterial({ color: 0x5a636c, transparent: true, opacity: 0.22, depthWrite: false })
-  );
-  m.rotation.x = -Math.PI / 2;
-  m.position.set(x, 0.025, z);
-  m.renderOrder = 1;
-  parent.add(m);
+  if(!contactMaterial) {
+    const tex=canvasTex(128,128,(g)=>{
+      const grad=g.createRadialGradient(64,64,10,64,64,64);
+      grad.addColorStop(0,'rgba(255,255,255,0.7)');grad.addColorStop(.55,'rgba(255,255,255,.28)');grad.addColorStop(1,'rgba(255,255,255,0)');
+      g.fillStyle=grad;g.fillRect(0,0,128,128);
+    });
+    contactMaterial=new THREE.MeshBasicMaterial({map:tex,color:0x121b25,transparent:true,opacity:.38,depthWrite:false});
+  }
+  const m=new THREE.Mesh(geo('contact-plane',()=>new THREE.PlaneGeometry(2,2)),contactMaterial);
+  m.scale.set(r,r,1);m.rotation.x=-Math.PI/2;m.position.set(x,.027,z);m.renderOrder=1;parent.add(m);
 }
 
 function rails(parent, x, z, w, d, y, id) {
@@ -566,6 +600,7 @@ export function createPlant(scene) {
 
   const units = {};
   function register(id, group, labelAt, pose) {
+    decorateUnit(id, group, MAT);
     group.updateMatrixWorld(true);
     const anchor = group.localToWorld(new THREE.Vector3(labelAt[0], labelAt[1], labelAt[2]));
     const label = anchor.clone();
@@ -650,7 +685,7 @@ export function createPlant(scene) {
   const fz = [-2.1, -0.7, 0.7, 2.1];
   fz.forEach((z) => {
     addCyl(filter, 0.62, 0.62, 3.15, MAT.vessel, 0.2, 2.05, z, "filter", true, 22);
-    const dome = new THREE.Mesh(new THREE.SphereGeometry(0.62, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), MAT.vessel);
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(0.62, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2), MAT.vessel);
     dome.position.set(0.2, 3.62, z);
     dome.castShadow = true;
     dome.userData.id = "filter";
@@ -818,9 +853,10 @@ export function createPlant(scene) {
   function closedVessel(x, y, z) {
     const g = new THREE.Group();
     g.position.set(x, y, z);
-    const shell = new THREE.Mesh(cyl(0.34, 0.34, 5.5, 22), MAT.stainless);
+    const shell = new THREE.Mesh(cyl(0.34, 0.34, 5.5, 32), MAT.vessel);
     shell.rotation.z = -Math.PI / 2;
     shell.castShadow = true;
+    shell.receiveShadow = true;
     shell.userData.id = "membrane";
     g.add(shell);
     const capL = new THREE.Mesh(cyl(0.36, 0.36, 0.16, 18), MAT.paintDeep);
@@ -949,17 +985,19 @@ export function createPlant(scene) {
   });
 
   // headers
-  addCyl(ro, 0.14, 0.14, 5.4, MAT.stainless, 24.7, 2.4, 0.2, "membrane", false).rotation.x = Math.PI / 2;
-  addCyl(ro, 0.12, 0.12, 5.4, MAT.stainless, 31.3, 1.15, 0.6, "membrane", false).rotation.x = Math.PI / 2;
-  addCyl(ro, 0.12, 0.12, 5.4, std(0x8d6a45, 0.6, 0.35), 31.3, 3.3, -0.4, "membrane", false).rotation.x = Math.PI / 2;
+  addCyl(ro, 0.14, 0.14, 6.6, MAT.stainless, 24.1, 2.4, 0.2, "membrane", false).rotation.x = Math.PI / 2;
+  addCyl(ro, 0.12, 0.12, 5.4, MAT.stainless, 31.85, 1.15, 0.6, "membrane", false).rotation.x = Math.PI / 2;
+  addCyl(ro, 0.12, 0.12, 6.6, MAT.concentrate, 32.25, 3.3, 0.2, "membrane", false).rotation.x = Math.PI / 2;
   rails(ro, 28, 0.4, 7.6, 6.4, 0.4, "membrane");
   contact(ro, 4.2, 28, 0.4);
-  const plate = plaque(ro, "交叉流", "产水 + 浓水", 30.6, 2.55, 3.55, 1.8, 0.85);
+  const plate = plaque(ro, "交叉流", "产水 + 浓水", 33.0, 1.85, 3.85, 0.95, 0.45);
+  plate.userData.hideNear = 25;
+  plaques.push(plate);
   plate.userData.id = "membrane";
   register("membrane", ro, [28, 4.2, 1.2], {
-    pos: [31.6, 3.6, 10.4],
-    target: [28.2, 1.75, 2.4],
-    fov: 30,
+    pos: [33.25, 6.075, 18.65],
+    target: [28.0, 2.2, 0.4],
+    fov: 37,
   });
 
   // ---------- energy recovery ----------
@@ -1010,7 +1048,7 @@ export function createPlant(scene) {
   root.add(tank);
   [ -1.8, 2.2 ].forEach((z, i) => {
     const x = 57.5;
-    const sphere = new THREE.Mesh(new THREE.SphereGeometry(1.96, 28, 20), MAT.vessel);
+    const sphere = new THREE.Mesh(new THREE.SphereGeometry(1.96, 48, 32), MAT.vessel);
     sphere.position.set(x, 2.22, z);
     sphere.castShadow = true;
     sphere.receiveShadow = true;
@@ -1046,12 +1084,14 @@ export function createPlant(scene) {
       uniform float uTime;
       void main() {
         float along = vUv.y;
-        float flow = 0.78 + 0.22 * sin(along * 18.0 - uTime * 1.6);
-        float edge = smoothstep(0.0, 0.06, vUv.x) * smoothstep(1.0, 0.94, vUv.x);
-        vec3 deep = vec3(0.2, 0.78, 0.92);
-        vec3 bright = vec3(0.78, 0.97, 1.0);
+        float flow = 0.44 + 0.16 * sin(along * 18.0 - uTime * 1.6);
+        float edge = smoothstep(0.0, 0.06, vUv.x) * (1.0 - smoothstep(0.94, 1.0, vUv.x));
+        vec3 deep = vec3(0.012, 0.095, 0.14);
+        vec3 bright = vec3(0.06, 0.29, 0.34);
         vec3 col = mix(deep, bright, flow);
-        gl_FragColor = vec4(col, 0.92 * edge);
+        float ripple = pow(0.5 + 0.5*sin(vUv.x*46.0 + along*58.0 - uTime*1.8),12.0);
+        col += vec3(0.018,0.035,0.038)*ripple;
+        gl_FragColor = vec4(col, 0.89 * edge);
       }
     `,
   });
@@ -1166,7 +1206,7 @@ export function createPlant(scene) {
         [18.5, 1.55, 0.15],
         [21.2, 2.7, 0.3],
         [24.2, 2.7, 0.2],
-        [24.7, 2.4, 0.2],
+        [24.1, 2.4, 0.2],
       ],
     },
     {
@@ -1177,7 +1217,7 @@ export function createPlant(scene) {
       arrow: 0xf7fdff,
       speed: 0.15,
       pts: [
-        [31.3, 1.15, 2.4],
+        [31.85, 1.15, 2.4],
         [36.5, 1.35, 3.3],
         [43.5, 1.55, 2.6],
         [47.3, 2.4, 1.2],
@@ -1234,7 +1274,7 @@ export function createPlant(scene) {
       arrow: 0xffd0a6,
       speed: 0.2,
       pts: [
-        [31.3, 3.3, -0.4],
+        [32.25, 3.3, -0.4],
         [35.5, 2.5, -1.5],
         [38.8, 1.4, -1.5],
       ],
@@ -1326,9 +1366,9 @@ export function createPlant(scene) {
     const mat = new THREE.MeshBasicMaterial({
       color: f.color,
       transparent: true,
-      opacity: 0.92,
+      opacity: 0.76,
       depthWrite: false,
-      blending: THREE.AdditiveBlending,
+      blending: THREE.NormalBlending,
     });
     const arrows = new THREE.InstancedMesh(arrowGeo, mat, count);
     arrows.frustumCulled = false;
