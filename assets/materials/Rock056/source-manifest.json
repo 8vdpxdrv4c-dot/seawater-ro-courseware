@@ -1,0 +1,59 @@
+{
+  "material": "Rock056",
+  "source": "https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Rock056/",
+  "license": "ambientCG CC0",
+  "actualDimensions": "2048x1024 on all five images",
+  "totalBytes": 3129369,
+  "files": [
+    {
+      "file": "Rock056_SQ_AmbientOcclusion.jpg",
+      "format": "JPEG",
+      "width": 2048,
+      "height": 1024,
+      "mode": "L",
+      "bytes": 557881,
+      "sha256": "36f133c3e6330e6735516292040ccbf535a45d74f48800c0f4bcfea37f102d50",
+      "httpStatus": 200
+    },
+    {
+      "file": "Rock056_SQ_Color.jpg",
+      "format": "JPEG",
+      "width": 2048,
+      "height": 1024,
+      "mode": "RGB",
+      "bytes": 872461,
+      "sha256": "b78760bcbaa7ac9f454e6b12f80459113361948d6e32968b4bc09d2fed8db7a2",
+      "httpStatus": 200
+    },
+    {
+      "file": "Rock056_SQ_Displacement.jpg",
+      "format": "JPEG",
+      "width": 2048,
+      "height": 1024,
+      "mode": "L",
+      "bytes": 109046,
+      "sha256": "0ed5794ce4d1a8e3c335a9bbb837c815037f9bbe7cbe76643c52a81915a59db5",
+      "httpStatus": 200
+    },
+    {
+      "file": "Rock056_SQ_NormalDX.jpg",
+      "format": "JPEG",
+      "width": 2048,
+      "height": 1024,
+      "mode": "RGB",
+      "bytes": 1151189,
+      "sha256": "a6e03d85850493126b5aa5544fbc4cba0a69fcf8f1c610afd9d4e9600ff7e63f",
+      "httpStatus": 200
+    },
+    {
+      "file": "Rock056_SQ_Roughness.jpg",
+      "format": "JPEG",
+      "width": 2048,
+      "height": 1024,
+      "mode": "L",
+      "bytes": 438792,
+      "sha256": "87f51fd5c67584ab22b09120a30515d3b9de7164947397fca2ad48b4cf3caaad",
+      "httpStatus": 200
+    }
+  ]
+}

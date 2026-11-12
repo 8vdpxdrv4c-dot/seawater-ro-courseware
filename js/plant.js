@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
+import { createRock056Material, mapRock056WorldXZ } from "./rock056.js?v=20261112-rock056-n2";
 import { decorateUnit } from "./industrial-detail.js?v=20261111-polish-v2";
 
 const MAT = {};
@@ -387,32 +388,15 @@ export function createPlant(scene) {
   const flows = [];
   const plaques = [];
 
-  const sandTex = beachMap();
-  sandTex.wrapS = sandTex.wrapT = THREE.RepeatWrapping;
-  const sandMat = new THREE.MeshStandardMaterial({
-    color: 0xfff4df,
-    map: sandTex,
-    metalness: 0.02,
-    roughness: 0.94,
-  });
-  sandMat.onBeforeCompile = (shader) => {
-    shader.vertexShader = shader.vertexShader
-      .replace("#include <common>", "#include <common>\nattribute float wetness;\nvarying float vWet;")
-      .replace("#include <begin_vertex>", "#include <begin_vertex>\nvWet = wetness;");
-    shader.fragmentShader = shader.fragmentShader
-      .replace("#include <common>", "#include <common>\nvarying float vWet;")
-      .replace("#include <color_fragment>", "#include <color_fragment>\ndiffuseColor.rgb *= mix(vec3(1.0), vec3(0.82, 0.68, 0.46), clamp(vWet, 0.0, 1.0));")
-      .replace("#include <roughnessmap_fragment>", "float roughnessFactor = mix(0.92, 0.16, clamp(vWet, 0.0, 1.0));");
-  };
-  // Plant on the seaward edge of a southeast mainland. Open ocean fills the north and west.
+  const sandMat = createRock056Material(true);
+  // User explicitly selected the entire continuous terrain, including shoreline/shallow sand.
   const island = new THREE.Mesh(buildIslandGeometry(), sandMat);
   island.receiveShadow = true;
   island.castShadow = false;
   root.add(island);
-  const duneTex = sandTex.clone();
-  duneTex.repeat.set(5, 5);
-  const duneMat = sandMat.clone();
-  duneMat.map = duneTex;
+  mapRock056WorldXZ(island,"terrain.rock056.mainland");
+  const duneMat = createRock056Material(false);
+  let duneIndex=0;
   function dune(x, z, rx, ry, rz, rot) {
     const m = new THREE.Mesh(new THREE.SphereGeometry(1, 28, 16), duneMat);
     m.scale.set(rx, ry, rz);
@@ -421,6 +405,7 @@ export function createPlant(scene) {
     m.castShadow = true;
     m.receiveShadow = true;
     root.add(m);
+    mapRock056WorldXZ(m,`terrain.rock056.dune.${String(++duneIndex).padStart(2,"0")}`);
   }
   // Low desert dunes in the opening foreground and along the coast.
   dune(-2, 26, 16, 2.2, 7, 0.35);

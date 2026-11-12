@@ -5,8 +5,9 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 import { BokehPass } from "three/addons/postprocessing/BokehPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { createReferenceFlare, SKY_PALETTE } from "./reference-sky.js?v=20261111-polish-v2";
-import { createPlant } from "./plant.js?v=20261111-polish-v2";
+import { createPlant } from "./plant.js?v=20261112-rock056-n2";
 import { createCoastalOcean } from "./ocean.js?v=20261111-polish-v2";
+import { waitForRock056 } from "./rock056.js?v=20261112-rock056-n2";
 import { CONTENT, STAGES, ORDER } from "./content.js?v=20261111-polish-v2";
 
 const $ = (id) => document.getElementById(id);
@@ -838,6 +839,7 @@ function frame() {
 }
 
 async function main() {
+  await waitForRock056();
   try {
     if (document.fonts?.ready) await document.fonts.ready;
   } catch (err) {
